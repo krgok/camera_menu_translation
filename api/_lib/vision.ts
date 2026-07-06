@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "./fetchWithTimeout.js";
+
 export interface OcrTextBlock {
   text: string;
   // bounding box normalized to 0-1000 on both axes
@@ -17,7 +19,7 @@ export async function detectText(
   const apiKey = process.env.GOOGLE_VISION_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_VISION_API_KEY が未設定です");
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
     {
       method: "POST",

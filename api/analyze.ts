@@ -44,17 +44,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const base64 = parseDataUrl(image);
-    const items: MenuItem[] = [];
 
-    if (modes.includes("text")) {
-      const { w, h } = await getImageSize(base64);
-      const blocks = await detectText(base64, w, h);
-      items.push(...(await groupAndExplainText(blocks)));
-    }
+    const textTask = modes.includes("text")
+      ? getImageSize(base64)
+          .then(({ w, h }) => detectText(base64, w, h))
+          .then(groupAndExplainText)
+      : Promise.resolve<MenuItem[]>([]);
 
-    if (modes.includes("image")) {
-      items.push(...(await analyzeDishImage(base64)));
-    }
+    const imageTask = modes.includes("image")
+      ? analyzeDishImage(base64)
+      : Promise.resolve<MenuItem[]>([]);
+
+    const [textItems, imageItems] = await Promise.all([textTask, imageTask]);
+    const items: MenuItem[] = [...textItems, ...imageItems];
 
     res.status(200).json({ items });
   } catch (e) {

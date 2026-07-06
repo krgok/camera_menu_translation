@@ -1,5 +1,6 @@
 import type { OcrTextBlock } from "./vision.js";
 import type { MenuItem } from "../../src/lib/types";
+import { fetchWithTimeout } from "./fetchWithTimeout.js";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -7,7 +8,7 @@ async function callGemini(body: object) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY が未設定です");
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
     {
       method: "POST",
