@@ -15,7 +15,7 @@ async function callGemini(body: object) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     },
-    40000,
+    65000,
   );
 
   if (!res.ok) {
@@ -39,7 +39,12 @@ export async function groupAndExplainText(
 ): Promise<MenuItem[]> {
   if (blocks.length === 0) return [];
 
-  const indexed = blocks.map((b, i) => ({ index: i, text: b.text }));
+  // Drop price/punctuation-only fragments before sending to Gemini: they're
+  // numerous on real menus and inflate the prompt without adding items.
+  const isPriceOrNoise = /^[\d.,:\-–—°$€¥£₹฿%\s]+$/;
+  const indexed = blocks
+    .map((b, i) => ({ index: i, text: b.text }))
+    .filter(({ text }) => !isPriceOrNoise.test(text));
 
   const result = await callGemini({
     contents: [
