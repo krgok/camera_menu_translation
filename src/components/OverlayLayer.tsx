@@ -1,20 +1,20 @@
 import { useRef, useState } from "react";
 import { containRect, boxToStyle } from "../lib/coords";
 import type { MenuItem } from "../lib/types";
-import { OverlayItem } from "./OverlayItem";
+import { OverlayMarker } from "./OverlayMarker";
 
 interface Props {
   capturedImage: string;
   items: MenuItem[];
-  onSave: (item: MenuItem) => void;
-  savedNames: Set<string>;
+  activeIndex: number | null;
+  onSelect: (index: number) => void;
 }
 
 export function OverlayLayer({
   capturedImage,
   items,
-  onSave,
-  savedNames,
+  activeIndex,
+  onSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [naturalSize, setNaturalSize] = useState<{
@@ -37,11 +37,7 @@ export function OverlayLayer({
       : null;
 
   return (
-    <div
-      className="overlay-container"
-      ref={containerRef}
-      onLoad={undefined}
-    >
+    <div className="overlay-container" ref={containerRef}>
       <img
         src={capturedImage}
         alt="キャプチャした映像"
@@ -57,12 +53,12 @@ export function OverlayLayer({
       />
       {rect &&
         items.map((item, i) => (
-          <OverlayItem
+          <OverlayMarker
             key={`${item.name}-${i}`}
-            item={item}
+            index={i}
             style={boxToStyle(item.box, rect)}
-            onSave={onSave}
-            saved={savedNames.has(item.name)}
+            active={activeIndex === i}
+            onSelect={() => onSelect(i)}
           />
         ))}
     </div>

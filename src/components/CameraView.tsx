@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useCamera } from "../hooks/useCamera";
 import { OverlayLayer } from "./OverlayLayer";
+import { ItemList } from "./ItemList";
 import type { MenuItem } from "../lib/types";
 
 interface Props {
@@ -23,14 +24,23 @@ export function CameraView({
   savedNames,
 }: Props) {
   const { videoRef, ready, error, start, captureFrame } = useCamera();
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!frozenImage) start();
   }, [frozenImage, start]);
 
+  useEffect(() => {
+    setActiveIndex(null);
+  }, [frozenImage]);
+
   const handleScan = () => {
     const frame = captureFrame();
     if (frame) onCapture(frame);
+  };
+
+  const toggleActive = (index: number) => {
+    setActiveIndex((current) => (current === index ? null : index));
   };
 
   return (
@@ -47,8 +57,8 @@ export function CameraView({
           <OverlayLayer
             capturedImage={frozenImage}
             items={items}
-            onSave={onSave}
-            savedNames={savedNames}
+            activeIndex={activeIndex}
+            onSelect={toggleActive}
           />
         )}
       </div>
@@ -64,6 +74,16 @@ export function CameraView({
           </button>
         )}
       </div>
+
+      {frozenImage && (
+        <ItemList
+          items={items}
+          activeIndex={activeIndex}
+          onSelect={toggleActive}
+          onSave={onSave}
+          savedNames={savedNames}
+        />
+      )}
     </div>
   );
 }

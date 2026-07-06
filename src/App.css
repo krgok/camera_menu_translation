@@ -88,49 +88,101 @@
   background: #000;
 }
 
-.overlay-item {
-  position: absolute;
-  cursor: pointer;
-}
-
 .overlay-box {
-  width: 100%;
-  height: 100%;
+  position: absolute;
   border: 2px solid var(--accent);
   border-radius: 4px;
-  background: rgba(192, 132, 252, 0.12);
+  background: rgba(192, 132, 252, 0.15);
+  pointer-events: none;
 }
 
-.overlay-card {
+.overlay-marker {
   position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  background: rgba(20, 20, 24, 0.95);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 0.4rem 0.6rem;
-  min-width: 160px;
-  max-width: 220px;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: rgba(20, 20, 24, 0.9);
+  color: var(--text);
   font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 5;
 }
 
-.overlay-card-title {
+.overlay-marker.active {
+  background: var(--accent);
+  color: #16171d;
+}
+
+.item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.item-list-row {
+  display: flex;
+  gap: 0.6rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+}
+
+.item-list-row.active {
+  border-color: var(--accent);
+}
+
+.item-list-number {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.item-list-row.active .item-list-number {
+  background: var(--accent);
+  color: #16171d;
+}
+
+.item-list-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-list-title {
   font-weight: 600;
 }
 
-.overlay-card-original {
+.item-list-original {
   color: #aaa;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
-.overlay-card-explanation {
-  margin-top: 0.35rem;
+.item-list-explanation {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.9rem;
 }
 
-.overlay-card-save {
-  margin-top: 0.5rem;
+.item-list-save {
   width: 100%;
 }
 
