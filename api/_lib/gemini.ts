@@ -1,4 +1,4 @@
-import type { OcrTextBlock } from "./vision";
+import type { OcrTextBlock } from "./vision.js";
 import type { MenuItem } from "../../src/lib/types";
 
 const MODEL = "gemini-2.5-flash";

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireUser } from "./_lib/auth";
-import { detectText } from "./_lib/vision";
-import { groupAndExplainText, analyzeDishImage } from "./_lib/gemini";
+import { requireUser } from "./_lib/auth.js";
+import { detectText } from "./_lib/vision.js";
+import { groupAndExplainText, analyzeDishImage } from "./_lib/gemini.js";
 import type { AnalyzeRequest, MenuItem } from "../src/lib/types";
 
 function parseDataUrl(dataUrl: string) {
