@@ -33,6 +33,7 @@ export async function detectText(
         ],
       }),
     },
+    15000,
   );
 
   if (!res.ok) {
