@@ -31,12 +31,28 @@ export function SavedList() {
     <ul className="saved-list">
       {items.map((item) => (
         <li key={item.id} className="saved-list-item">
-          <div className="saved-list-title">{item.dish_name}</div>
-          {item.original_text && (
-            <div className="saved-list-original">{item.original_text}</div>
-          )}
-          <div className="saved-list-explanation">{item.explanation}</div>
-          <button onClick={() => remove(item.id)}>削除</button>
+          <div className="saved-list-row">
+            {item.thumbnail_url && (
+              <img
+                src={item.thumbnail_url}
+                alt={item.dish_name}
+                className="saved-list-thumb"
+              />
+            )}
+            <div className="saved-list-body">
+              <div className="saved-list-title">
+                {item.dish_name}
+                {item.source_language && (
+                  <span className="saved-list-lang">{item.source_language}</span>
+                )}
+              </div>
+              {item.original_text && (
+                <div className="saved-list-original">{item.original_text}</div>
+              )}
+              <div className="saved-list-explanation">{item.explanation}</div>
+              <button onClick={() => remove(item.id)}>削除</button>
+            </div>
+          </div>
         </li>
       ))}
     </ul>

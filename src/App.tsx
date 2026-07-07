@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { useAnalyze } from "./hooks/useAnalyze";
+import { useExplain } from "./hooks/useExplain";
 import type { MenuItem, RecognitionMode } from "./lib/types";
+import { cropThumbnail } from "./lib/image";
+import { loadHistory, pushHistory, type HistoryEntry } from "./lib/history";
 import { AuthButton } from "./components/AuthButton";
 import { ModeToggle } from "./components/ModeToggle";
 import { CameraView } from "./components/CameraView";
@@ -17,7 +20,10 @@ function App() {
   const [modes, setModes] = useState<RecognitionMode[]>(["text"]);
   const [frozenImage, setFrozenImage] = useState<string | null>(null);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
-  const { analyze, loading, error, items, setItems } = useAnalyze();
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const { analyze, loading, elapsedSeconds, error, warnings, items, setItems } =
+    useAnalyze();
+  const { explain, loadingIndex, setLoadingIndex } = useExplain();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -29,11 +35,24 @@ function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
   const handleCapture = async (image: string) => {
     setFrozenImage(image);
     setSavedNames(new Set());
     if (modes.length === 0) return;
-    await analyze(image, modes);
+    const result = await analyze(image, modes);
+    if (result.length > 0) {
+      const entry: HistoryEntry = { image, items: result, timestamp: Date.now() };
+      pushHistory(entry);
+      setHistory(loadHistory());
+    }
+  };
+
+  const handleRetry = () => {
+    if (frozenImage) analyze(frozenImage, modes);
   };
 
   const handleRescan = () => {
@@ -41,14 +60,41 @@ function App() {
     setItems([]);
   };
 
+  const handleRestoreHistory = (entry: HistoryEntry) => {
+    setFrozenImage(entry.image);
+    setItems(entry.items);
+    setSavedNames(new Set());
+  };
+
+  const handleExplain = async (index: number) => {
+    const item = items[index];
+    if (!item || item.explanation) return;
+    setLoadingIndex(index);
+    const explanation = await explain(item);
+    if (explanation) {
+      setItems((prev) =>
+        prev.map((it, i) => (i === index ? { ...it, explanation } : it)),
+      );
+    }
+    setLoadingIndex(null);
+  };
+
   const handleSave = async (item: MenuItem) => {
-    if (!user) return;
+    if (!user || !frozenImage || !item.explanation) return;
+    let thumbnail_url: string | null = null;
+    try {
+      thumbnail_url = await cropThumbnail(frozenImage, item.box);
+    } catch {
+      // Thumbnail is a nice-to-have — saving the text should still succeed.
+    }
+
     const { error: saveError } = await supabase.from("saved_items").insert({
       user_id: user.id,
       dish_name: item.name,
       original_text: item.original_text ?? null,
       explanation: item.explanation,
-      source_language: null,
+      source_language: item.source_language ?? null,
+      thumbnail_url,
     });
     if (!saveError) {
       setSavedNames((prev) => new Set(prev).add(item.name));
@@ -87,15 +133,22 @@ function App() {
       {tab === "camera" ? (
         <>
           <ModeToggle modes={modes} onChange={setModes} />
-          {error && <p className="camera-error">{error}</p>}
           <CameraView
             frozenImage={frozenImage}
             items={items}
             loading={loading}
+            elapsedSeconds={elapsedSeconds}
+            error={error}
+            warnings={warnings}
+            history={history}
             onCapture={handleCapture}
+            onRetry={handleRetry}
             onRescan={handleRescan}
+            onRestoreHistory={handleRestoreHistory}
             onSave={handleSave}
             savedNames={savedNames}
+            onExplain={handleExplain}
+            explainingIndex={loadingIndex}
           />
         </>
       ) : (

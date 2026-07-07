@@ -23,5 +23,6 @@ export interface SavedItem {
   original_text: string | null;
   explanation: string;
   source_language: string | null;
+  thumbnail_url: string | null;
   created_at: string;
 }

@@ -6,6 +6,7 @@ interface Props {
   onSelect: (index: number) => void;
   onSave: (item: MenuItem) => void;
   savedNames: Set<string>;
+  explainingIndex: number | null;
 }
 
 export function ItemList({
@@ -14,6 +15,7 @@ export function ItemList({
   onSelect,
   onSave,
   savedNames,
+  explainingIndex,
 }: Props) {
   if (items.length === 0) return null;
 
@@ -38,12 +40,20 @@ export function ItemList({
                       {item.original_text}
                     </div>
                   )}
-                  <div className="item-list-explanation">
-                    {item.explanation}
-                  </div>
+                  {item.explanation ? (
+                    <div className="item-list-explanation">
+                      {item.explanation}
+                    </div>
+                  ) : (
+                    <div className="item-list-explanation item-list-loading">
+                      {explainingIndex === i
+                        ? "説明を読み込み中..."
+                        : "説明を取得できませんでした"}
+                    </div>
+                  )}
                   <button
                     className="item-list-save"
-                    disabled={saved}
+                    disabled={saved || !item.explanation}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSave(item);

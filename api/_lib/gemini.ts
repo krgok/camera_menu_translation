@@ -15,7 +15,7 @@ async function callGemini(body: object) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     },
-    65000,
+    45000,
   );
 
   if (!res.ok) {
@@ -28,15 +28,18 @@ async function callGemini(body: object) {
   return JSON.parse(text);
 }
 
+// thinkingBudget: 0 skips Gemini 2.5's default reasoning pass, which is the
+// single biggest lever on latency for this app's short, low-ambiguity prompts.
+const FAST_GENERATION_CONFIG = { thinkingConfig: { thinkingBudget: 0 } };
+
 /**
- * Groups OCR text blocks into menu items and asks Gemini for a translated
- * name + explanation. Gemini references blocks by index rather than
- * inventing coordinates, so the final bounding box is computed from the
- * (accurate) Vision OCR boxes rather than a Gemini-guessed position.
+ * Groups OCR text blocks into menu items and asks Gemini for translated
+ * name + original text only (no explanation yet, to keep this first pass
+ * fast). Gemini references blocks by index rather than inventing
+ * coordinates, so the final bounding box is computed from the (accurate)
+ * Vision OCR boxes rather than a Gemini-guessed position.
  */
-export async function groupAndExplainText(
-  blocks: OcrTextBlock[],
-): Promise<MenuItem[]> {
+export async function groupMenuItems(blocks: OcrTextBlock[]): Promise<MenuItem[]> {
   if (blocks.length === 0) return [];
 
   // Drop price/punctuation-only fragments before sending to Gemini: they're
@@ -54,17 +57,16 @@ export async function groupAndExplainText(
           {
             text:
               "以下はメニューをOCRで読み取った文字断片のリストです(index付き)。" +
-              "同じメニュー項目を構成する断片をグループ化し、各項目について日本語の料理名・原文表記と、" +
-              "現地の言葉が読めない旅行者がその料理を注文するか判断できるだけの説明を生成してください。" +
-              "単語を訳すだけでなく、主な食材、調理法(揚げる/焼く/煮るなど)、味の特徴(辛さ・甘さなど)、" +
-              "量や提供形態など、実際に食べたときのイメージが伝わる2〜3文の説明にしてください。" +
-              "価格や無関係な文字は無視してください。\n\n" +
+              "同じメニュー項目を構成する断片をグループ化し、各項目について日本語の料理名・" +
+              "原文表記・原文の言語(ISO 639-1コード、判別できなければ省略)を返してください。" +
+              "説明文は不要です。価格や無関係な文字は無視してください。\n\n" +
               JSON.stringify(indexed),
           },
         ],
       },
     ],
     generationConfig: {
+      ...FAST_GENERATION_CONFIG,
       responseMimeType: "application/json",
       responseSchema: {
         type: "object",
@@ -76,10 +78,10 @@ export async function groupAndExplainText(
               properties: {
                 name: { type: "string" },
                 original_text: { type: "string" },
-                explanation: { type: "string" },
+                source_language: { type: "string" },
                 block_indices: { type: "array", items: { type: "integer" } },
               },
-              required: ["name", "explanation", "block_indices"],
+              required: ["name", "block_indices"],
             },
           },
         },
@@ -103,7 +105,7 @@ export async function groupAndExplainText(
     items.push({
       name: raw.name,
       original_text: raw.original_text,
-      explanation: raw.explanation,
+      source_language: raw.source_language,
       box: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
       source: "text",
     });
@@ -113,12 +115,11 @@ export async function groupAndExplainText(
 
 /**
  * Sends the captured frame directly to Gemini Vision to identify dishes and
- * their approximate location. Coordinates are Gemini's own estimate
- * (normalized 0-1000), so this is less precise than the OCR-based flow.
+ * their approximate location, without an explanation yet (see
+ * `explainDish`). Coordinates are Gemini's own estimate (normalized
+ * 0-1000), so this is less precise than the OCR-based flow.
  */
-export async function analyzeDishImage(
-  base64Image: string,
-): Promise<MenuItem[]> {
+export async function identifyDishes(base64Image: string): Promise<MenuItem[]> {
   const result = await callGemini({
     contents: [
       {
@@ -128,15 +129,14 @@ export async function analyzeDishImage(
           {
             text:
               "この画像に写っている料理を特定してください。各料理について、日本語の料理名と、" +
-              "現地の言葉が読めない旅行者がその料理を注文するか判断できるだけの説明を生成してください。" +
-              "見た目から推測できる主な食材、調理法(揚げる/焼く/煮るなど)、味の特徴(辛さ・甘さなど)を含めた" +
-              "2〜3文の説明にしてください。あわせて、画像内でのおおよその位置を" +
-              "0〜1000で正規化した矩形(x,y,w,h。左上原点)で返してください。",
+              "画像内でのおおよその位置を0〜1000で正規化した矩形(x,y,w,h。左上原点)で返してください。" +
+              "説明文は不要です。",
           },
         ],
       },
     ],
     generationConfig: {
+      ...FAST_GENERATION_CONFIG,
       responseMimeType: "application/json",
       responseSchema: {
         type: "object",
@@ -147,7 +147,6 @@ export async function analyzeDishImage(
               type: "object",
               properties: {
                 name: { type: "string" },
-                explanation: { type: "string" },
                 box: {
                   type: "object",
                   properties: {
@@ -159,7 +158,7 @@ export async function analyzeDishImage(
                   required: ["x", "y", "w", "h"],
                 },
               },
-              required: ["name", "explanation", "box"],
+              required: ["name", "box"],
             },
           },
         },
@@ -170,8 +169,48 @@ export async function analyzeDishImage(
 
   return (result.items ?? []).map((raw: any) => ({
     name: raw.name,
-    explanation: raw.explanation,
     box: raw.box,
     source: "image" as const,
   }));
+}
+
+/**
+ * Fetched on demand when the user taps a menu item, so the initial scan
+ * only pays for grouping/identification, not full explanations for every
+ * item on the menu.
+ */
+export async function explainDish(
+  name: string,
+  originalText?: string,
+): Promise<string> {
+  const result = await callGemini({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              `料理名「${name}」` +
+              (originalText ? `(原文表記: ${originalText})` : "") +
+              "について、現地の言葉が読めない旅行者がその料理を注文するか判断できるだけの説明を生成してください。" +
+              "単語を訳すだけでなく、主な食材、調理法(揚げる/焼く/煮るなど)、味の特徴(辛さ・甘さなど)、" +
+              "量や提供形態など、実際に食べたときのイメージが伝わる2〜3文の日本語にしてください。",
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      ...FAST_GENERATION_CONFIG,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "object",
+        properties: {
+          explanation: { type: "string" },
+        },
+        required: ["explanation"],
+      },
+    },
+  });
+
+  return result.explanation as string;
 }

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireUser } from "./_lib/auth.js";
 import { detectText } from "./_lib/vision.js";
-import { groupAndExplainText, analyzeDishImage } from "./_lib/gemini.js";
+import { groupMenuItems, identifyDishes } from "./_lib/gemini.js";
 import type { AnalyzeRequest, MenuItem } from "../src/lib/types";
 
 function parseDataUrl(dataUrl: string) {
@@ -45,20 +45,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const base64 = parseDataUrl(image);
 
-    const textTask = modes.includes("text")
-      ? getImageSize(base64)
+    const tasks: Promise<MenuItem[]>[] = [];
+    if (modes.includes("text")) {
+      tasks.push(
+        getImageSize(base64)
           .then(({ w, h }) => detectText(base64, w, h))
-          .then(groupAndExplainText)
-      : Promise.resolve<MenuItem[]>([]);
+          .then(groupMenuItems),
+      );
+    }
+    if (modes.includes("image")) {
+      tasks.push(identifyDishes(base64));
+    }
 
-    const imageTask = modes.includes("image")
-      ? analyzeDishImage(base64)
-      : Promise.resolve<MenuItem[]>([]);
+    const settled = await Promise.allSettled(tasks);
 
-    const [textItems, imageItems] = await Promise.all([textTask, imageTask]);
-    const items: MenuItem[] = [...textItems, ...imageItems];
+    const items: MenuItem[] = [];
+    const warnings: string[] = [];
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        items.push(...result.value);
+      } else {
+        const message =
+          result.reason instanceof Error
+            ? result.reason.message
+            : "解析に失敗しました";
+        warnings.push(message);
+      }
+    }
 
-    res.status(200).json({ items });
+    if (items.length === 0 && warnings.length > 0) {
+      res.status(502).json({ error: warnings.join(" / ") });
+      return;
+    }
+
+    res.status(200).json({ items, warnings: warnings.length ? warnings : undefined });
   } catch (e) {
     const message = e instanceof Error ? e.message : "解析に失敗しました";
     const status = message.includes("認証") ? 401 : 500;

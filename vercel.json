@@ -1,7 +1,10 @@
 {
   "functions": {
     "api/analyze.ts": {
-      "maxDuration": 90
+      "maxDuration": 60
+    },
+    "api/explain.ts": {
+      "maxDuration": 30
     }
   }
 }

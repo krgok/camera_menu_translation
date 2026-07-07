@@ -7,6 +7,7 @@ create table if not exists saved_items (
   original_text  text,
   explanation    text not null,
   source_language text,
+  thumbnail_url  text,
   created_at     timestamptz not null default now()
 );
 
