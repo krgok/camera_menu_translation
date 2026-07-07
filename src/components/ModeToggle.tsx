@@ -1,11 +1,12 @@
-import type { RecognitionMode } from "../lib/types";
+import type { AppMode, RecognitionMode } from "../lib/types";
 
 interface Props {
   modes: RecognitionMode[];
   onChange: (modes: RecognitionMode[]) => void;
+  appMode: AppMode;
 }
 
-export function ModeToggle({ modes, onChange }: Props) {
+export function ModeToggle({ modes, onChange, appMode }: Props) {
   const toggle = (mode: RecognitionMode) => {
     if (modes.includes(mode)) {
       onChange(modes.filter((m) => m !== mode));
@@ -13,6 +14,11 @@ export function ModeToggle({ modes, onChange }: Props) {
       onChange([...modes, mode]);
     }
   };
+
+  const textLabel =
+    appMode === "museum" ? "文字(解説パネル)を認識" : "文字を認識";
+  const imageLabel =
+    appMode === "museum" ? "展示物・作品を認識" : "画像(料理写真)を認識";
 
   return (
     <div className="mode-toggle">
@@ -22,7 +28,7 @@ export function ModeToggle({ modes, onChange }: Props) {
           checked={modes.includes("text")}
           onChange={() => toggle("text")}
         />
-        文字を認識
+        {textLabel}
       </label>
       <label>
         <input
@@ -30,7 +36,7 @@ export function ModeToggle({ modes, onChange }: Props) {
           checked={modes.includes("image")}
           onChange={() => toggle("image")}
         />
-        画像(料理写真)を認識
+        {imageLabel}
       </label>
     </div>
   );

@@ -9,6 +9,10 @@ create table if not exists saved_items (
   explanation    text not null,
   source_language text,
   thumbnail_url  text,
+  -- "menu" or "museum" — which app mode saved this item.
+  mode           text not null default 'menu',
+  -- Museum mode: array of {title, url} reference links.
+  reference_links jsonb,
   created_at     timestamptz not null default now()
 );
 

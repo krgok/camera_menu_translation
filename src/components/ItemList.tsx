@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import type { MenuItem } from "../lib/types";
+import { isSupported, speak, stop } from "../lib/speech";
 
 interface Props {
   items: MenuItem[];
@@ -17,7 +19,27 @@ export function ItemList({
   savedNames,
   explainingIndex,
 }: Props) {
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const speechSupported = isSupported();
+
+  // Stop any ongoing speech if the list unmounts or the active item changes.
+  useEffect(() => {
+    return () => stop();
+  }, []);
+
   if (items.length === 0) return null;
+
+  const toggleSpeak = (index: number, item: MenuItem) => {
+    if (speakingIndex === index) {
+      stop();
+      setSpeakingIndex(null);
+      return;
+    }
+    setSpeakingIndex(index);
+    speak(`${item.name}。${item.explanation ?? ""}`, () => {
+      setSpeakingIndex((current) => (current === index ? null : current));
+    });
+  };
 
   return (
     <ul className="item-list">
@@ -56,16 +78,48 @@ export function ItemList({
                         : "説明を取得できませんでした"}
                     </div>
                   )}
-                  <button
-                    className="item-list-save"
-                    disabled={saved || !item.explanation}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSave(item);
-                    }}
-                  >
-                    {saved ? "保存済み" : "★ 保存"}
-                  </button>
+                  {item.explanation && item.references && item.references.length > 0 && (
+                    <div className="item-references">
+                      <span className="item-references-label">参考リンク:</span>
+                      <ul>
+                        {item.references.map((ref, refIndex) => (
+                          <li key={refIndex}>
+                            <a
+                              href={ref.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {ref.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div className="item-list-actions">
+                    {item.explanation && speechSupported && (
+                      <button
+                        className="item-list-speak"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSpeak(i, item);
+                        }}
+                      >
+                        {speakingIndex === i ? "⏹ 停止" : "🔊 読み上げ"}
+                      </button>
+                    )}
+                    <button
+                      className="item-list-save"
+                      disabled={saved || !item.explanation}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSave(item);
+                      }}
+                    >
+                      {saved ? "保存済み" : "★ 保存"}
+                    </button>
+                  </div>
                 </>
               )}
             </div>

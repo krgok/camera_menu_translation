@@ -1,9 +1,12 @@
-import type { MenuItem } from "./types";
+import type { AppMode, MenuItem } from "./types";
 
 export interface HistoryEntry {
   image: string;
   items: MenuItem[];
   timestamp: number;
+  // Optional for backward compatibility with history entries saved before
+  // museum mode existed — treat missing as "menu".
+  appMode?: AppMode;
 }
 
 const KEY = "menu-camera-history";

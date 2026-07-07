@@ -17,6 +17,9 @@ export function HistoryPanel({ history, onSelect }: Props) {
           onClick={() => onSelect(entry)}
         >
           <img src={entry.image} alt="過去のスキャン" />
+          <span className="history-thumb-mode">
+            {entry.appMode === "museum" ? "博物館" : "メニュー"}
+          </span>
           <span>{entry.items.length}件</span>
         </button>
       ))}

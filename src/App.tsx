@@ -3,10 +3,11 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { useAnalyze } from "./hooks/useAnalyze";
 import { useExplain } from "./hooks/useExplain";
-import type { MenuItem, RecognitionMode } from "./lib/types";
+import type { AppMode, MenuItem, RecognitionMode } from "./lib/types";
 import { cropThumbnail } from "./lib/image";
 import { loadHistory, pushHistory, type HistoryEntry } from "./lib/history";
 import { AuthButton } from "./components/AuthButton";
+import { AppModeSwitch } from "./components/AppModeSwitch";
 import { ModeToggle } from "./components/ModeToggle";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
@@ -14,9 +15,17 @@ import "./App.css";
 
 type Tab = "camera" | "saved";
 
+const APP_MODE_KEY = "app-mode";
+
+function loadAppMode(): AppMode {
+  const raw = localStorage.getItem(APP_MODE_KEY);
+  return raw === "menu" || raw === "museum" ? raw : "menu";
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState<Tab>("camera");
+  const [appMode, setAppMode] = useState<AppMode>(loadAppMode);
   const [modes, setModes] = useState<RecognitionMode[]>(["text"]);
   const [frozenImage, setFrozenImage] = useState<string | null>(null);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
@@ -39,20 +48,39 @@ function App() {
     setHistory(loadHistory());
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem(APP_MODE_KEY, appMode);
+  }, [appMode]);
+
+  const handleAppModeChange = (next: AppMode) => {
+    if (next === appMode || loading) return;
+    setAppMode(next);
+    // Results from one mode don't make sense once the other mode's prompts
+    // and labels are in effect, so drop them rather than show stale data.
+    setFrozenImage(null);
+    setItems([]);
+    setSavedNames(new Set());
+  };
+
   const handleCapture = async (image: string) => {
     setFrozenImage(image);
     setSavedNames(new Set());
     if (modes.length === 0) return;
-    const result = await analyze(image, modes);
+    const result = await analyze(image, modes, appMode);
     if (result.length > 0) {
-      const entry: HistoryEntry = { image, items: result, timestamp: Date.now() };
+      const entry: HistoryEntry = {
+        image,
+        items: result,
+        timestamp: Date.now(),
+        appMode,
+      };
       pushHistory(entry);
       setHistory(loadHistory());
     }
   };
 
   const handleRetry = () => {
-    if (frozenImage) analyze(frozenImage, modes);
+    if (frozenImage) analyze(frozenImage, modes, appMode);
   };
 
   const handleRescan = () => {
@@ -64,16 +92,21 @@ function App() {
     setFrozenImage(entry.image);
     setItems(entry.items);
     setSavedNames(new Set());
+    setAppMode(entry.appMode ?? "menu");
   };
 
   const handleExplain = async (index: number) => {
     const item = items[index];
     if (!item || item.explanation) return;
     setLoadingIndex(index);
-    const explanation = await explain(item);
-    if (explanation) {
+    const result = await explain(item, appMode);
+    if (result) {
       setItems((prev) =>
-        prev.map((it, i) => (i === index ? { ...it, explanation } : it)),
+        prev.map((it, i) =>
+          i === index
+            ? { ...it, explanation: result.explanation, references: result.references }
+            : it,
+        ),
       );
     }
     setLoadingIndex(null);
@@ -96,6 +129,8 @@ function App() {
       explanation: item.explanation,
       source_language: item.source_language ?? null,
       thumbnail_url,
+      mode: appMode,
+      reference_links: item.references ?? null,
     });
     if (!saveError) {
       setSavedNames((prev) => new Set(prev).add(item.name));
@@ -105,9 +140,11 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>メニュー説明カメラ</h1>
+        <h1>{appMode === "museum" ? "博物館説明カメラ" : "メニュー説明カメラ"}</h1>
         <AuthButton user={user} />
       </header>
+
+      <AppModeSwitch appMode={appMode} onChange={handleAppModeChange} disabled={loading} />
 
       <nav className="app-tabs">
         <button
@@ -133,7 +170,7 @@ function App() {
 
       {tab === "camera" ? (
         <>
-          <ModeToggle modes={modes} onChange={setModes} />
+          <ModeToggle modes={modes} onChange={setModes} appMode={appMode} />
           <CameraView
             frozenImage={frozenImage}
             items={items}

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Reference } from "./types";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -25,5 +26,7 @@ export interface SavedItem {
   explanation: string;
   source_language: string | null;
   thumbnail_url: string | null;
+  mode: string;
+  reference_links: Reference[] | null;
   created_at: string;
 }

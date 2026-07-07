@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase, type SavedItem } from "../lib/supabase";
+import { isSupported, speak, stop } from "../lib/speech";
 
 export function SavedList() {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const speechSupported = isSupported();
 
   const load = async () => {
     setLoading(true);
@@ -19,9 +22,25 @@ export function SavedList() {
     load();
   }, []);
 
+  useEffect(() => {
+    return () => stop();
+  }, []);
+
   const remove = async (id: string) => {
     await supabase.from("saved_items").delete().eq("id", id);
     setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const toggleSpeak = (item: SavedItem) => {
+    if (speakingId === item.id) {
+      stop();
+      setSpeakingId(null);
+      return;
+    }
+    setSpeakingId(item.id);
+    speak(`${item.dish_name}。${item.explanation}`, () => {
+      setSpeakingId((current) => (current === item.id ? null : current));
+    });
   };
 
   if (loading) return <p>読み込み中...</p>;
@@ -41,6 +60,9 @@ export function SavedList() {
             )}
             <div className="saved-list-body">
               <div className="saved-list-title">
+                <span className="saved-list-mode-badge">
+                  {item.mode === "museum" ? "博物館" : "メニュー"}
+                </span>
                 {item.dish_name}
                 {item.source_language && (
                   <span className="saved-list-lang">{item.source_language}</span>
@@ -55,7 +77,31 @@ export function SavedList() {
                 </div>
               )}
               <div className="saved-list-explanation">{item.explanation}</div>
-              <button onClick={() => remove(item.id)}>削除</button>
+              {item.reference_links && item.reference_links.length > 0 && (
+                <div className="item-references">
+                  <span className="item-references-label">参考リンク:</span>
+                  <ul>
+                    {item.reference_links.map((ref, refIndex) => (
+                      <li key={refIndex}>
+                        <a href={ref.url} target="_blank" rel="noopener noreferrer">
+                          {ref.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="item-list-actions">
+                {speechSupported && (
+                  <button
+                    className="item-list-speak"
+                    onClick={() => toggleSpeak(item)}
+                  >
+                    {speakingId === item.id ? "⏹ 停止" : "🔊 読み上げ"}
+                  </button>
+                )}
+                <button onClick={() => remove(item.id)}>削除</button>
+              </div>
             </div>
           </div>
         </li>

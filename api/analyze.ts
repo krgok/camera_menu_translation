@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await requireUser(req.headers.authorization);
 
-    const { image, modes } = req.body as AnalyzeRequest;
+    const { image, modes, appMode = "menu" } = req.body as AnalyzeRequest;
     if (!image || !modes || modes.length === 0) {
       res.status(400).json({ error: "image と modes は必須です" });
       return;
@@ -50,11 +50,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tasks.push(
         getImageSize(base64)
           .then(({ w, h }) => detectText(base64, w, h))
-          .then(groupMenuItems),
+          .then((blocks) => groupMenuItems(blocks, appMode)),
       );
     }
     if (modes.includes("image")) {
-      tasks.push(identifyDishes(base64));
+      tasks.push(identifyDishes(base64, appMode));
     }
 
     const settled = await Promise.allSettled(tasks);

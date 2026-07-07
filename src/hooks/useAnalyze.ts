@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
-import type { AnalyzeResponse, MenuItem, RecognitionMode } from "../lib/types";
+import type { AnalyzeResponse, AppMode, MenuItem, RecognitionMode } from "../lib/types";
 
 export function useAnalyze() {
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,7 @@ export function useAnalyze() {
   }, [loading]);
 
   const analyze = useCallback(
-    async (image: string, modes: RecognitionMode[]) => {
+    async (image: string, modes: RecognitionMode[], appMode: AppMode) => {
       setLoading(true);
       setError(null);
       setWarnings([]);
@@ -43,7 +43,7 @@ export function useAnalyze() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ image, modes }),
+          body: JSON.stringify({ image, modes, appMode }),
         });
 
         if (!res.ok) {
