@@ -192,6 +192,17 @@
 
 .item-list-title {
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.title-speak {
+  flex: none;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  border-radius: 6px;
 }
 
 .item-list-original {
@@ -415,4 +426,20 @@
 
 .saved-list-explanation {
   margin: 0.4rem 0 0.6rem;
+}
+
+.scroll-top-button {
+  position: fixed;
+  right: 1rem;
+  bottom: 1.25rem;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(27, 30, 38, 0.92);
+  font-size: 1.1rem;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 10;
 }

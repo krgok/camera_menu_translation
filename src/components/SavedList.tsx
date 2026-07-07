@@ -14,6 +14,7 @@ export function SavedList() {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [titleSpeakingId, setTitleSpeakingId] = useState<string | null>(null);
   const [speechRate, setSpeechRate] = useState<SpeechRate>(loadSpeechRate);
   const speechSupported = isSupported();
 
@@ -46,6 +47,8 @@ export function SavedList() {
       setSpeakingId(null);
       return;
     }
+    // speak() cancels the other utterance; clear its button state too.
+    setTitleSpeakingId(null);
     setSpeakingId(item.id);
     speak(
       `${item.dish_name}。${item.explanation}`,
@@ -53,6 +56,25 @@ export function SavedList() {
         setSpeakingId((current) => (current === item.id ? null : current));
       },
       speechRate,
+    );
+  };
+
+  // Title-only readout is always rate 1 — it's a short phrase, and applying
+  // the explanation-speed setting to it just makes names hard to catch.
+  const toggleTitleSpeak = (item: SavedItem) => {
+    if (titleSpeakingId === item.id) {
+      stop();
+      setTitleSpeakingId(null);
+      return;
+    }
+    setSpeakingId(null);
+    setTitleSpeakingId(item.id);
+    speak(
+      item.dish_name,
+      () => {
+        setTitleSpeakingId((current) => (current === item.id ? null : current));
+      },
+      1,
     );
   };
 
@@ -83,6 +105,19 @@ export function SavedList() {
                   {item.mode === "museum" ? "博物館" : "メニュー"}
                 </span>
                 {item.dish_name}
+                {speechSupported && (
+                  <button
+                    className="title-speak"
+                    aria-label={
+                      titleSpeakingId === item.id
+                        ? "読み上げを停止"
+                        : "名前を読み上げ"
+                    }
+                    onClick={() => toggleTitleSpeak(item)}
+                  >
+                    {titleSpeakingId === item.id ? "⏹" : "🔊"}
+                  </button>
+                )}
                 {item.source_language && (
                   <span className="saved-list-lang">{item.source_language}</span>
                 )}

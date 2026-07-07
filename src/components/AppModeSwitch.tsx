@@ -14,7 +14,7 @@ export function AppModeSwitch({ appMode, onChange, disabled }: Props) {
         disabled={disabled}
         onClick={() => onChange("menu")}
       >
-        🍽 料理メニュー
+        🍽 料理説明
       </button>
       <button
         className={appMode === "museum" ? "active" : ""}

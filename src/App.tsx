@@ -11,6 +11,7 @@ import { AppModeSwitch } from "./components/AppModeSwitch";
 import { ModeToggle } from "./components/ModeToggle";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
+import { ScrollTopButton } from "./components/ScrollTopButton";
 import "./App.css";
 
 type Tab = "camera" | "saved";
@@ -192,6 +193,8 @@ function App() {
       ) : (
         <SavedList />
       )}
+
+      <ScrollTopButton />
     </div>
   );
 }

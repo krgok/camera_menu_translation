@@ -28,6 +28,7 @@ export function ItemList({
   explainingIndex,
 }: Props) {
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const [titleSpeakingIndex, setTitleSpeakingIndex] = useState<number | null>(null);
   const [speechRate, setSpeechRate] = useState<SpeechRate>(loadSpeechRate);
   const speechSupported = isSupported();
 
@@ -44,6 +45,8 @@ export function ItemList({
       setSpeakingIndex(null);
       return;
     }
+    // speak() cancels the other utterance; clear its button state too.
+    setTitleSpeakingIndex(null);
     setSpeakingIndex(index);
     speak(
       `${item.name}。${item.explanation ?? ""}`,
@@ -51,6 +54,25 @@ export function ItemList({
         setSpeakingIndex((current) => (current === index ? null : current));
       },
       speechRate,
+    );
+  };
+
+  // Title-only readout is always rate 1 — it's a short phrase, and applying
+  // the explanation-speed setting to it just makes names hard to catch.
+  const toggleTitleSpeak = (index: number, item: MenuItem) => {
+    if (titleSpeakingIndex === index) {
+      stop();
+      setTitleSpeakingIndex(null);
+      return;
+    }
+    setSpeakingIndex(null);
+    setTitleSpeakingIndex(index);
+    speak(
+      item.name,
+      () => {
+        setTitleSpeakingIndex((current) => (current === index ? null : current));
+      },
+      1,
     );
   };
 
@@ -73,7 +95,23 @@ export function ItemList({
           >
             <span className="item-list-number">{i + 1}</span>
             <div className="item-list-body">
-              <div className="item-list-title">{item.name}</div>
+              <div className="item-list-title">
+                {item.name}
+                {speechSupported && (
+                  <button
+                    className="title-speak"
+                    aria-label={
+                      titleSpeakingIndex === i ? "読み上げを停止" : "名前を読み上げ"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTitleSpeak(i, item);
+                    }}
+                  >
+                    {titleSpeakingIndex === i ? "⏹" : "🔊"}
+                  </button>
+                )}
+              </div>
               {active && (
                 <>
                   {item.original_text && (
