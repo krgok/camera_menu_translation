@@ -7,6 +7,9 @@ export type RecognitionMode = "text" | "image";
 export interface MenuItem {
   name: string;
   original_text?: string;
+  // IPA transcription of original_text, so a traveler can attempt to say
+  // the dish name aloud when ordering.
+  pronunciation?: string;
   explanation?: string;
   source_language?: string;
   box: { x: number; y: number; w: number; h: number };

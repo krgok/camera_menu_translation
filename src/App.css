@@ -177,6 +177,12 @@
   font-size: 0.8rem;
 }
 
+.item-list-ipa {
+  margin-left: 0.4rem;
+  color: var(--accent);
+  font-style: italic;
+}
+
 .item-list-explanation {
   margin: 0.35rem 0 0.5rem;
   font-size: 0.9rem;

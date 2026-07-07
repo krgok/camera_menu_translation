@@ -5,6 +5,7 @@ create table if not exists saved_items (
   user_id        uuid not null references auth.users(id) on delete cascade,
   dish_name      text not null,
   original_text  text,
+  pronunciation  text,
   explanation    text not null,
   source_language text,
   thumbnail_url  text,

@@ -38,6 +38,11 @@ export function ItemList({
                   {item.original_text && (
                     <div className="item-list-original">
                       {item.original_text}
+                      {item.pronunciation && (
+                        <span className="item-list-ipa">
+                          [{item.pronunciation}]
+                        </span>
+                      )}
                     </div>
                   )}
                   {item.explanation ? (

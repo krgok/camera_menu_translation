@@ -58,7 +58,8 @@ export async function groupMenuItems(blocks: OcrTextBlock[]): Promise<MenuItem[]
             text:
               "以下はメニューをOCRで読み取った文字断片のリストです(index付き)。" +
               "同じメニュー項目を構成する断片をグループ化し、各項目について日本語の料理名・" +
-              "原文表記・原文の言語(ISO 639-1コード、判別できなければ省略)を返してください。" +
+              "原文表記・原文の言語(ISO 639-1コード、判別できなければ省略)・" +
+              "原文表記の発音記号(IPA。注文時に声に出して読む助けになるように)を返してください。" +
               "説明文は不要です。価格や無関係な文字は無視してください。\n\n" +
               JSON.stringify(indexed),
           },
@@ -78,6 +79,7 @@ export async function groupMenuItems(blocks: OcrTextBlock[]): Promise<MenuItem[]
               properties: {
                 name: { type: "string" },
                 original_text: { type: "string" },
+                pronunciation: { type: "string" },
                 source_language: { type: "string" },
                 block_indices: { type: "array", items: { type: "integer" } },
               },
@@ -105,6 +107,7 @@ export async function groupMenuItems(blocks: OcrTextBlock[]): Promise<MenuItem[]
     items.push({
       name: raw.name,
       original_text: raw.original_text,
+      pronunciation: raw.pronunciation,
       source_language: raw.source_language,
       box: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
       source: "text",

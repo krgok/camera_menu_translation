@@ -92,6 +92,7 @@ function App() {
       user_id: user.id,
       dish_name: item.name,
       original_text: item.original_text ?? null,
+      pronunciation: item.pronunciation ?? null,
       explanation: item.explanation,
       source_language: item.source_language ?? null,
       thumbnail_url,

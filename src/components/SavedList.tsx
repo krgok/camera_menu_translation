@@ -47,7 +47,12 @@ export function SavedList() {
                 )}
               </div>
               {item.original_text && (
-                <div className="saved-list-original">{item.original_text}</div>
+                <div className="saved-list-original">
+                  {item.original_text}
+                  {item.pronunciation && (
+                    <span className="item-list-ipa">[{item.pronunciation}]</span>
+                  )}
+                </div>
               )}
               <div className="saved-list-explanation">{item.explanation}</div>
               <button onClick={() => remove(item.id)}>削除</button>

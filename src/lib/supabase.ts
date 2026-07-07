@@ -21,6 +21,7 @@ export interface SavedItem {
   user_id: string;
   dish_name: string;
   original_text: string | null;
+  pronunciation: string | null;
   explanation: string;
   source_language: string | null;
   thumbnail_url: string | null;
