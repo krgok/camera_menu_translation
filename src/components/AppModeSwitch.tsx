@@ -14,14 +14,14 @@ export function AppModeSwitch({ appMode, onChange, disabled }: Props) {
         disabled={disabled}
         onClick={() => onChange("menu")}
       >
-        🍽 メニュー
+        🍽 料理メニュー
       </button>
       <button
         className={appMode === "museum" ? "active" : ""}
         disabled={disabled}
         onClick={() => onChange("museum")}
       >
-        🏛 博物館
+        🏛 博物館説明
       </button>
     </div>
   );

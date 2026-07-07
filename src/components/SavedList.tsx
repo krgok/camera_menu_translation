@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
 import { supabase, type SavedItem } from "../lib/supabase";
-import { isSupported, speak, stop } from "../lib/speech";
+import {
+  isSupported,
+  loadSpeechRate,
+  saveSpeechRate,
+  speak,
+  stop,
+  type SpeechRate,
+} from "../lib/speech";
+import { SpeechRateSwitch } from "./SpeechRateSwitch";
 
 export function SavedList() {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [speechRate, setSpeechRate] = useState<SpeechRate>(loadSpeechRate);
   const speechSupported = isSupported();
 
   const load = async () => {
@@ -38,9 +47,19 @@ export function SavedList() {
       return;
     }
     setSpeakingId(item.id);
-    speak(`${item.dish_name}。${item.explanation}`, () => {
-      setSpeakingId((current) => (current === item.id ? null : current));
-    });
+    speak(
+      `${item.dish_name}。${item.explanation}`,
+      () => {
+        setSpeakingId((current) => (current === item.id ? null : current));
+      },
+      speechRate,
+    );
+  };
+
+  // Applies from the next utterance — an in-flight one keeps its rate.
+  const changeRate = (rate: SpeechRate) => {
+    setSpeechRate(rate);
+    saveSpeechRate(rate);
   };
 
   if (loading) return <p>読み込み中...</p>;
@@ -93,12 +112,15 @@ export function SavedList() {
               )}
               <div className="item-list-actions">
                 {speechSupported && (
-                  <button
-                    className="item-list-speak"
-                    onClick={() => toggleSpeak(item)}
-                  >
-                    {speakingId === item.id ? "⏹ 停止" : "🔊 読み上げ"}
-                  </button>
+                  <>
+                    <button
+                      className="item-list-speak"
+                      onClick={() => toggleSpeak(item)}
+                    >
+                      {speakingId === item.id ? "⏹ 停止" : "🔊 読み上げ"}
+                    </button>
+                    <SpeechRateSwitch rate={speechRate} onChange={changeRate} />
+                  </>
                 )}
                 <button onClick={() => remove(item.id)}>削除</button>
               </div>

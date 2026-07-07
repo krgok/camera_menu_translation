@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import type { MenuItem } from "../lib/types";
-import { isSupported, speak, stop } from "../lib/speech";
+import {
+  isSupported,
+  loadSpeechRate,
+  saveSpeechRate,
+  speak,
+  stop,
+  type SpeechRate,
+} from "../lib/speech";
+import { SpeechRateSwitch } from "./SpeechRateSwitch";
 
 interface Props {
   items: MenuItem[];
@@ -20,6 +28,7 @@ export function ItemList({
   explainingIndex,
 }: Props) {
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const [speechRate, setSpeechRate] = useState<SpeechRate>(loadSpeechRate);
   const speechSupported = isSupported();
 
   // Stop any ongoing speech if the list unmounts or the active item changes.
@@ -36,9 +45,19 @@ export function ItemList({
       return;
     }
     setSpeakingIndex(index);
-    speak(`${item.name}。${item.explanation ?? ""}`, () => {
-      setSpeakingIndex((current) => (current === index ? null : current));
-    });
+    speak(
+      `${item.name}。${item.explanation ?? ""}`,
+      () => {
+        setSpeakingIndex((current) => (current === index ? null : current));
+      },
+      speechRate,
+    );
+  };
+
+  // Applies from the next utterance — an in-flight one keeps its rate.
+  const changeRate = (rate: SpeechRate) => {
+    setSpeechRate(rate);
+    saveSpeechRate(rate);
   };
 
   return (
@@ -99,15 +118,18 @@ export function ItemList({
                   )}
                   <div className="item-list-actions">
                     {item.explanation && speechSupported && (
-                      <button
-                        className="item-list-speak"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleSpeak(i, item);
-                        }}
-                      >
-                        {speakingIndex === i ? "⏹ 停止" : "🔊 読み上げ"}
-                      </button>
+                      <>
+                        <button
+                          className="item-list-speak"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSpeak(i, item);
+                          }}
+                        >
+                          {speakingIndex === i ? "⏹ 停止" : "🔊 読み上げ"}
+                        </button>
+                        <SpeechRateSwitch rate={speechRate} onChange={changeRate} />
+                      </>
                     )}
                     <button
                       className="item-list-save"
