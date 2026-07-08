@@ -29,17 +29,25 @@ export function saveSpeechRate(rate: SpeechRate): void {
   }
 }
 
+// `lang` accepts an ISO 639-1 code ("fr" etc.) — browsers prefix-match it to
+// an installed voice. Omitted → "ja-JP" (the app's explanation language).
+// Explicit null → leave utterance.lang unset so the engine auto-detects
+// (JS can't tell an omitted argument from an explicit undefined, so null is
+// the "no language" sentinel).
 export function speak(
   text: string,
   onEnd?: () => void,
   rate: SpeechRate = 1,
+  lang?: string | null,
 ): void {
   if (!isSupported()) return;
   // Cancel any in-flight utterance first — overlapping speech is worse than
   // interrupting it.
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "ja-JP";
+  if (lang !== null) {
+    utterance.lang = lang ?? "ja-JP";
+  }
   utterance.rate = rate;
   if (onEnd) {
     utterance.onend = onEnd;

@@ -57,9 +57,11 @@ export function ItemList({
     );
   };
 
-  // Title-only readout is always rate 1 — it's a short phrase, and applying
-  // the explanation-speed setting to it just makes names hard to catch.
-  const toggleTitleSpeak = (index: number, item: MenuItem) => {
+  // Reads the original text aloud in its source language (IPA text doesn't
+  // TTS well, so this is how a traveler hears the native pronunciation).
+  // Always rate 1 — a foreign phrase sped up is even harder to catch.
+  const toggleOriginalSpeak = (index: number, item: MenuItem) => {
+    if (!item.original_text) return;
     if (titleSpeakingIndex === index) {
       stop();
       setTitleSpeakingIndex(null);
@@ -68,11 +70,14 @@ export function ItemList({
     setSpeakingIndex(null);
     setTitleSpeakingIndex(index);
     speak(
-      item.name,
+      item.original_text,
       () => {
         setTitleSpeakingIndex((current) => (current === index ? null : current));
       },
       1,
+      // No source language → let the engine auto-detect (forcing ja-JP would
+      // mangle a foreign phrase).
+      item.source_language ?? null,
     );
   };
 
@@ -97,15 +102,15 @@ export function ItemList({
             <div className="item-list-body">
               <div className="item-list-title">
                 {item.name}
-                {speechSupported && (
+                {speechSupported && item.original_text && (
                   <button
                     className="title-speak"
                     aria-label={
-                      titleSpeakingIndex === i ? "読み上げを停止" : "名前を読み上げ"
+                      titleSpeakingIndex === i ? "読み上げを停止" : "原文を読み上げ"
                     }
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleTitleSpeak(i, item);
+                      toggleOriginalSpeak(i, item);
                     }}
                   >
                     {titleSpeakingIndex === i ? "⏹" : "🔊"}
