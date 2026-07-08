@@ -68,14 +68,31 @@ export function CameraView({
     onCapture(image);
   };
 
+  // onExplain must be called outside the setActiveIndex updater — updaters
+  // run during render, and updating App state from there is a React error.
   const toggleActive = (index: number) => {
-    setActiveIndex((current) => {
-      const next = current === index ? null : index;
-      if (next !== null && !items[next]?.explanation) {
-        onExplain(next);
-      }
-      return next;
-    });
+    const next = activeIndex === index ? null : index;
+    setActiveIndex(next);
+    if (next !== null && !items[next]?.explanation) {
+      onExplain(next);
+    }
+  };
+
+  // Marker taps come from the photo at the top of the screen, so the opened
+  // row may be off-screen — scroll it into view. Row taps in the list itself
+  // skip this (the row is already visible; jumping would be jarring).
+  const handleMarkerSelect = (index: number) => {
+    const opening = activeIndex !== index;
+    toggleActive(index);
+    if (opening) {
+      // Defer a tick so the row has rendered its expanded content
+      // (setTimeout rather than rAF: rAF stalls in backgrounded tabs).
+      setTimeout(() => {
+        document
+          .getElementById(`item-row-${index}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+    }
   };
 
   return (
@@ -93,7 +110,7 @@ export function CameraView({
             capturedImage={frozenImage}
             items={items}
             activeIndex={activeIndex}
-            onSelect={toggleActive}
+            onSelect={handleMarkerSelect}
           />
         )}
         {loading && (

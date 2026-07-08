@@ -95,6 +95,7 @@ export function ItemList({
         return (
           <li
             key={`${item.name}-${i}`}
+            id={`item-row-${i}`}
             className={`item-list-row ${active ? "active" : ""}`}
             onClick={() => onSelect(i)}
           >

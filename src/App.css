@@ -322,11 +322,36 @@
   color: #aaa;
 }
 
+.history-panel-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .history-panel {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 0.25rem;
+}
+
+.history-thumb-wrap {
+  flex: none;
+  position: relative;
+}
+
+.history-thumb-check {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  z-index: 2;
+}
+
+.history-export {
+  font-size: 0.85rem;
 }
 
 .history-thumb {
@@ -359,6 +384,10 @@
 .history-thumb .history-thumb-mode {
   bottom: auto;
   top: 0;
+  /* Hug the top-left corner so the download checkbox (top-right) stays clear. */
+  right: auto;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0 0 6px 0;
   color: var(--accent);
 }
 
