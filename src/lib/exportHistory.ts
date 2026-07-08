@@ -88,6 +88,8 @@ function buildNotes(entry: HistoryEntry): string {
     "",
     "![スキャン写真](./photo.jpg)",
     "",
+    "[元の写真](./photo-original.jpg)",
+    "",
   ];
 
   entry.items.forEach((item, i) => {
@@ -125,11 +127,15 @@ export async function exportHistoryZip(entries: HistoryEntry[]): Promise<void> {
     usedNames.add(name);
 
     const folder = zip.folder(name)!;
-    const base64 =
-      (await renderPhotoWithMarkers(entry)) ??
-      /^data:image\/\w+;base64,(.+)$/.exec(entry.image)?.[1];
-    if (base64) {
-      folder.file("photo.jpg", base64, { base64: true });
+    const originalBase64 = /^data:image\/\w+;base64,(.+)$/.exec(entry.image)?.[1];
+    const markedBase64 = (await renderPhotoWithMarkers(entry)) ?? originalBase64;
+    if (markedBase64) {
+      folder.file("photo.jpg", markedBase64, { base64: true });
+    }
+    // Untouched payload alongside the marked version — the burn-in re-encodes
+    // the JPEG, so this is the only lossless copy of the scan.
+    if (originalBase64) {
+      folder.file("photo-original.jpg", originalBase64, { base64: true });
     }
     folder.file("notes.md", buildNotes(entry));
   }
