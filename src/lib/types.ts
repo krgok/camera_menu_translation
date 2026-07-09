@@ -40,6 +40,9 @@ export interface AnalyzeRequest {
   image: string; // base64 JPEG data URL
   modes: RecognitionMode[];
   appMode?: AppMode; // defaults to "menu" for backward compatibility
+  // Optional free-text cuisine/region hint (e.g. "タイ料理") that narrows the
+  // hypothesis space for image recognition of plated food with no visible text.
+  contextHint?: string;
 }
 
 export interface ExplainRequest {

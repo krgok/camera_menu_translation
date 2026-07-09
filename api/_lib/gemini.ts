@@ -32,6 +32,15 @@ async function callGemini(body: object) {
 // single biggest lever on latency for this app's short, low-ambiguity prompts.
 const FAST_GENERATION_CONFIG = { thinkingConfig: { thinkingBudget: 0 } };
 
+// A user-supplied cuisine/region hint dramatically narrows visual
+// identification (a brown curry could be Japanese, Thai, or Indian). Kept as
+// a soft prior — the model may still override it if the image clearly differs.
+function hintClause(contextHint?: string): string {
+  const trimmed = contextHint?.trim();
+  if (!trimmed) return "";
+  return `なお、この画像は「${trimmed}」に関連するものだという参考情報があります。これを手がかりとしつつ、画像と明らかに矛盾する場合は画像を優先してください。`;
+}
+
 /**
  * Groups OCR text blocks into menu items and asks Gemini for translated
  * name + original text only (no explanation yet, to keep this first pass
@@ -42,6 +51,7 @@ const FAST_GENERATION_CONFIG = { thinkingConfig: { thinkingBudget: 0 } };
 export async function groupMenuItems(
   blocks: OcrTextBlock[],
   appMode: AppMode = "menu",
+  contextHint?: string,
 ): Promise<MenuItem[]> {
   if (blocks.length === 0) return [];
 
@@ -66,7 +76,9 @@ export async function groupMenuItems(
         "同じメニュー項目を構成する断片をグループ化し、各項目について日本語の料理名・" +
         "原文表記・原文の言語(ISO 639-1コード、判別できなければ省略)・" +
         "原文表記の発音記号(IPA。注文時に声に出して読む助けになるように)を返してください。" +
-        "説明文は不要です。価格や無関係な文字は無視してください。\n\n" +
+        "説明文は不要です。価格や無関係な文字は無視してください。" +
+        hintClause(contextHint) +
+        "\n\n" +
         JSON.stringify(indexed);
 
   const result = await callGemini({
@@ -135,9 +147,10 @@ export async function groupMenuItems(
 export async function identifyDishes(
   base64Image: string,
   appMode: AppMode = "menu",
+  contextHint?: string,
 ): Promise<MenuItem[]> {
   const prompt =
-    appMode === "museum"
+    (appMode === "museum"
       ? "この画像は博物館・美術館・観光地で撮影されたものです。写っている展示物・美術品・工芸品・" +
         "建造物・記念碑などの対象を特定してください。各対象について、日本語での名称" +
         "(特定できる場合は固有名、できない場合は「〜時代の陶器」のような具体的な種別)と、" +
@@ -145,7 +158,8 @@ export async function identifyDishes(
         "説明文は不要です。展示ケースや照明など展示物以外は含めないでください。"
       : "この画像に写っている料理を特定してください。各料理について、日本語の料理名と、" +
         "画像内でのおおよその位置を0〜1000で正規化した矩形(x,y,w,h。左上原点)で返してください。" +
-        "説明文は不要です。";
+        "確信が持てない場合でも、見た目から推測できる最も具体的な料理名を答えてください。" +
+        "説明文は不要です。") + hintClause(contextHint);
 
   const result = await callGemini({
     contents: [

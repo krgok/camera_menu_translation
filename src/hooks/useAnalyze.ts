@@ -26,7 +26,12 @@ export function useAnalyze() {
   }, [loading]);
 
   const analyze = useCallback(
-    async (image: string, modes: RecognitionMode[], appMode: AppMode) => {
+    async (
+      image: string,
+      modes: RecognitionMode[],
+      appMode: AppMode,
+      contextHint?: string,
+    ) => {
       setLoading(true);
       setError(null);
       setWarnings([]);
@@ -43,7 +48,7 @@ export function useAnalyze() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ image, modes, appMode }),
+          body: JSON.stringify({ image, modes, appMode, contextHint }),
         });
 
         if (!res.ok) {

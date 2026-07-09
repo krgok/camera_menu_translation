@@ -75,6 +75,31 @@
   gap: 0.35rem;
 }
 
+.context-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.context-hint-label {
+  color: #aaa;
+}
+
+.context-hint input {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: inherit;
+}
+
+.context-hint input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .camera-view {
   display: flex;
   flex-direction: column;

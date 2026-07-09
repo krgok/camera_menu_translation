@@ -9,6 +9,7 @@ import { loadHistory, pushHistory, type HistoryEntry } from "./lib/history";
 import { AuthButton } from "./components/AuthButton";
 import { AppModeSwitch } from "./components/AppModeSwitch";
 import { ModeToggle } from "./components/ModeToggle";
+import { ContextHintInput } from "./components/ContextHintInput";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
 import { ScrollTopButton } from "./components/ScrollTopButton";
@@ -17,6 +18,7 @@ import "./App.css";
 type Tab = "camera" | "saved";
 
 const APP_MODE_KEY = "app-mode";
+const CONTEXT_HINT_KEY = "context-hint";
 
 function loadAppMode(): AppMode {
   const raw = localStorage.getItem(APP_MODE_KEY);
@@ -27,6 +29,9 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState<Tab>("camera");
   const [appMode, setAppMode] = useState<AppMode>(loadAppMode);
+  const [contextHint, setContextHint] = useState<string>(
+    () => localStorage.getItem(CONTEXT_HINT_KEY) ?? "",
+  );
   const [modes, setModes] = useState<RecognitionMode[]>(["text"]);
   const [frozenImage, setFrozenImage] = useState<string | null>(null);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
@@ -53,6 +58,12 @@ function App() {
     localStorage.setItem(APP_MODE_KEY, appMode);
   }, [appMode]);
 
+  // Persist the hint so it carries across scans — a traveler stays in the
+  // same country/cuisine for days, so re-typing it every time is wasteful.
+  useEffect(() => {
+    localStorage.setItem(CONTEXT_HINT_KEY, contextHint);
+  }, [contextHint]);
+
   const handleAppModeChange = (next: AppMode) => {
     if (next === appMode || loading) return;
     setAppMode(next);
@@ -67,7 +78,7 @@ function App() {
     setFrozenImage(image);
     setSavedNames(new Set());
     if (modes.length === 0) return;
-    const result = await analyze(image, modes, appMode);
+    const result = await analyze(image, modes, appMode, contextHint);
     if (result.length > 0) {
       const entry: HistoryEntry = {
         image,
@@ -81,7 +92,7 @@ function App() {
   };
 
   const handleRetry = () => {
-    if (frozenImage) analyze(frozenImage, modes, appMode);
+    if (frozenImage) analyze(frozenImage, modes, appMode, contextHint);
   };
 
   const handleRescan = () => {
@@ -172,6 +183,14 @@ function App() {
       {tab === "camera" ? (
         <>
           <ModeToggle modes={modes} onChange={setModes} appMode={appMode} />
+          {!frozenImage && (
+            <ContextHintInput
+              value={contextHint}
+              onChange={setContextHint}
+              appMode={appMode}
+              disabled={loading}
+            />
+          )}
           <CameraView
             frozenImage={frozenImage}
             items={items}
