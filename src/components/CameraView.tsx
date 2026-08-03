@@ -23,6 +23,7 @@ interface Props {
   savedNames: Set<string>;
   onExplain: (index: number) => void;
   explainingIndex: number | null;
+  onExportText: () => void;
 }
 
 export function CameraView({
@@ -41,6 +42,7 @@ export function CameraView({
   savedNames,
   onExplain,
   explainingIndex,
+  onExportText,
 }: Props) {
   const { videoRef, ready, error: cameraError, start, captureFrame } = useCamera();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -113,6 +115,17 @@ export function CameraView({
             onSelect={handleMarkerSelect}
           />
         )}
+        {/* Shutter overlaid on the viewfinder, phone-camera style — the old
+            below-the-fold button forced a thumb reach away from the framing
+            hand. */}
+        {!frozenImage && (
+          <button
+            className="camera-shutter"
+            aria-label="スキャン"
+            onClick={handleScan}
+            disabled={!ready || loading}
+          />
+        )}
         {loading && (
           <div className="camera-loading-overlay">
             解析中... ({elapsedSeconds}秒)
@@ -139,7 +152,12 @@ export function CameraView({
 
       <div className="camera-controls">
         {frozenImage ? (
-          <button onClick={onRescan}>再スキャン</button>
+          <>
+            <button onClick={onRescan}>再スキャン</button>
+            {items.length > 0 && (
+              <button onClick={onExportText}>📄 テキスト保存</button>
+            )}
+          </>
         ) : (
           <>
             <button onClick={handleScan} disabled={!ready || loading}>

@@ -24,6 +24,9 @@ export interface MenuItem {
   // the dish name aloud when ordering.
   pronunciation?: string;
   explanation?: string;
+  // Set when the dish may contain an ingredient the user asked to avoid
+  // (fetched together with `explanation`).
+  warning?: string;
   // Museum mode only: fetched together with `explanation`.
   references?: Reference[];
   source_language?: string;
@@ -49,9 +52,13 @@ export interface ExplainRequest {
   name: string;
   original_text?: string;
   appMode?: AppMode;
+  // Comma/space-separated ingredients the user wants to avoid (allergies,
+  // dislikes). Menu mode only — museum explanations ignore it.
+  avoid?: string;
 }
 
 export interface ExplainResponse {
   explanation: string;
+  warning?: string;
   references?: Reference[];
 }

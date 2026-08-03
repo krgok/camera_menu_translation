@@ -10,6 +10,8 @@ import { AuthButton } from "./components/AuthButton";
 import { AppModeSwitch } from "./components/AppModeSwitch";
 import { ModeToggle } from "./components/ModeToggle";
 import { ContextHintInput } from "./components/ContextHintInput";
+import { AvoidIngredientsInput } from "./components/AvoidIngredientsInput";
+import { exportItemsText } from "./lib/exportText";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
 import { ScrollTopButton } from "./components/ScrollTopButton";
@@ -19,6 +21,7 @@ type Tab = "camera" | "saved";
 
 const APP_MODE_KEY = "app-mode";
 const CONTEXT_HINT_KEY = "context-hint";
+const AVOID_KEY = "avoid-ingredients";
 
 function loadAppMode(): AppMode {
   const raw = localStorage.getItem(APP_MODE_KEY);
@@ -32,12 +35,23 @@ function App() {
   const [contextHint, setContextHint] = useState<string>(
     () => localStorage.getItem(CONTEXT_HINT_KEY) ?? "",
   );
+  const [avoidIngredients, setAvoidIngredients] = useState<string>(
+    () => localStorage.getItem(AVOID_KEY) ?? "",
+  );
   const [modes, setModes] = useState<RecognitionMode[]>(["text"]);
   const [frozenImage, setFrozenImage] = useState<string | null>(null);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const { analyze, loading, elapsedSeconds, error, warnings, items, setItems } =
-    useAnalyze();
+  const {
+    analyze,
+    loading,
+    elapsedSeconds,
+    error,
+    warnings,
+    items,
+    setItems,
+    resetStatus,
+  } = useAnalyze();
   const { explain, loadingIndex, setLoadingIndex } = useExplain();
 
   useEffect(() => {
@@ -63,6 +77,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(CONTEXT_HINT_KEY, contextHint);
   }, [contextHint]);
+
+  useEffect(() => {
+    localStorage.setItem(AVOID_KEY, avoidIngredients);
+  }, [avoidIngredients]);
 
   const handleAppModeChange = (next: AppMode) => {
     if (next === appMode || loading) return;
@@ -98,6 +116,9 @@ function App() {
   const handleRescan = () => {
     setFrozenImage(null);
     setItems([]);
+    // Don't leave a stale error/warning banner from the previous attempt
+    // hanging under the live camera.
+    resetStatus();
   };
 
   const handleRestoreHistory = (entry: HistoryEntry) => {
@@ -105,23 +126,38 @@ function App() {
     setItems(entry.items);
     setSavedNames(new Set());
     setAppMode(entry.appMode ?? "menu");
+    resetStatus();
+    // An in-flight explain belongs to the previous scan's indices.
+    setLoadingIndex(null);
   };
 
   const handleExplain = async (index: number) => {
     const item = items[index];
     if (!item || item.explanation) return;
     setLoadingIndex(index);
-    const result = await explain(item, appMode);
+    const result = await explain(item, appMode, avoidIngredients);
     if (result) {
       setItems((prev) =>
         prev.map((it, i) =>
-          i === index
-            ? { ...it, explanation: result.explanation, references: result.references }
+          // Reference-compare against the captured item so a history restore
+          // mid-fetch can't get another scan's explanation glued onto its
+          // same-index item.
+          i === index && it === item
+            ? {
+                ...it,
+                explanation: result.explanation,
+                warning: result.warning,
+                references: result.references,
+              }
             : it,
         ),
       );
     }
     setLoadingIndex(null);
+  };
+
+  const handleExportText = () => {
+    if (items.length > 0) exportItemsText(items, appMode);
   };
 
   const handleSave = async (item: MenuItem) => {
@@ -184,12 +220,21 @@ function App() {
         <>
           <ModeToggle modes={modes} onChange={setModes} appMode={appMode} />
           {!frozenImage && (
-            <ContextHintInput
-              value={contextHint}
-              onChange={setContextHint}
-              appMode={appMode}
-              disabled={loading}
-            />
+            <>
+              <ContextHintInput
+                value={contextHint}
+                onChange={setContextHint}
+                appMode={appMode}
+                disabled={loading}
+              />
+              {appMode === "menu" && (
+                <AvoidIngredientsInput
+                  value={avoidIngredients}
+                  onChange={setAvoidIngredients}
+                  disabled={loading}
+                />
+              )}
+            </>
           )}
           <CameraView
             frozenImage={frozenImage}
@@ -207,6 +252,7 @@ function App() {
             savedNames={savedNames}
             onExplain={handleExplain}
             explainingIndex={loadingIndex}
+            onExportText={handleExportText}
           />
         </>
       ) : (

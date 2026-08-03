@@ -323,6 +323,83 @@
   font-size: 0.8rem;
 }
 
+.camera-shutter {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.25);
+  z-index: 6;
+}
+
+.camera-shutter:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(192, 132, 252, 0.3);
+}
+
+.camera-shutter:disabled {
+  opacity: 0.35;
+}
+
+.item-warning-badge {
+  color: #e0b84c;
+  font-size: 0.9rem;
+}
+
+.item-warning {
+  margin-top: 0.35rem;
+  color: #e0b84c;
+  font-size: 0.85rem;
+  border: 1px solid rgba(224, 184, 76, 0.5);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  background: rgba(224, 184, 76, 0.08);
+}
+
+.item-list-point {
+  white-space: nowrap;
+}
+
+.point-order-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.point-order-original {
+  font-size: clamp(2.5rem, 12vw, 6rem);
+  font-weight: 700;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.point-order-name {
+  font-size: 1.2rem;
+  color: #bbb;
+}
+
+.point-order-hint {
+  position: absolute;
+  bottom: 1.25rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
 .camera-loading-overlay {
   position: absolute;
   bottom: 0.5rem;

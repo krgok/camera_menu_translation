@@ -6,7 +6,11 @@ export function useExplain() {
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
 
   const explain = useCallback(
-    async (item: MenuItem, appMode: AppMode): Promise<ExplainResponse | null> => {
+    async (
+      item: MenuItem,
+      appMode: AppMode,
+      avoid?: string,
+    ): Promise<ExplainResponse | null> => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
@@ -22,6 +26,7 @@ export function useExplain() {
             name: item.name,
             original_text: item.original_text,
             appMode,
+            avoid,
           }),
         });
         if (!res.ok) return null;

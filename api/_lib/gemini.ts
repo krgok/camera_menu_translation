@@ -32,6 +32,12 @@ async function callGemini(body: object) {
 // single biggest lever on latency for this app's short, low-ambiguity prompts.
 const FAST_GENERATION_CONFIG = { thinkingConfig: { thinkingBudget: 0 } };
 
+// Visual dish identification is genuinely a reasoning task (unlike OCR
+// grouping), so image mode keeps a modest thinking budget — accuracy there
+// is worth a few extra seconds, and it only applies when the user picked
+// image mode.
+const VISUAL_GENERATION_CONFIG = { thinkingConfig: { thinkingBudget: 1024 } };
+
 // A user-supplied cuisine/region hint dramatically narrows visual
 // identification (a brown curry could be Japanese, Thai, or Indian). Kept as
 // a soft prior — the model may still override it if the image clearly differs.
@@ -156,9 +162,11 @@ export async function identifyDishes(
         "(特定できる場合は固有名、できない場合は「〜時代の陶器」のような具体的な種別)と、" +
         "画像内でのおおよその位置を0〜1000で正規化した矩形(x,y,w,h。左上原点)で返してください。" +
         "説明文は不要です。展示ケースや照明など展示物以外は含めないでください。"
-      : "この画像に写っている料理を特定してください。各料理について、日本語の料理名と、" +
-        "画像内でのおおよその位置を0〜1000で正規化した矩形(x,y,w,h。左上原点)で返してください。" +
-        "確信が持てない場合でも、見た目から推測できる最も具体的な料理名を答えてください。" +
+      : "この画像に写っている料理を特定してください。見えている食材、調理の痕跡(焦げ目・汁気・" +
+        "揚げ衣・麺の種類・ソースの色など)、盛り付けや器を根拠に推定してください。" +
+        "各料理について、日本語の料理名と、画像内でのおおよその位置を0〜1000で正規化した矩形" +
+        "(x,y,w,h。左上原点)で返してください。" +
+        "確信が持てない場合は「ガパオライスまたはカオマンガイ」のように有力な第2候補まで料理名に含めてください。" +
         "説明文は不要です。") + hintClause(contextHint);
 
   const result = await callGemini({
@@ -172,7 +180,7 @@ export async function identifyDishes(
       },
     ],
     generationConfig: {
-      ...FAST_GENERATION_CONFIG,
+      ...VISUAL_GENERATION_CONFIG,
       responseMimeType: "application/json",
       responseSchema: {
         type: "object",
@@ -224,7 +232,8 @@ export async function explainDish(
   name: string,
   originalText?: string,
   appMode: AppMode = "menu",
-): Promise<{ explanation: string; references?: Reference[] }> {
+  avoid?: string,
+): Promise<{ explanation: string; warning?: string; references?: Reference[] }> {
   if (appMode === "museum") {
     const result = await callGemini({
       contents: [
@@ -278,6 +287,7 @@ export async function explainDish(
     };
   }
 
+  const avoidTrimmed = avoid?.trim();
   const result = await callGemini({
     contents: [
       {
@@ -289,7 +299,13 @@ export async function explainDish(
               (originalText ? `(原文表記: ${originalText})` : "") +
               "について、現地の言葉が読めない旅行者がその料理を注文するか判断できるだけの説明を生成してください。" +
               "単語を訳すだけでなく、主な食材、調理法(揚げる/焼く/煮るなど)、味の特徴(辛さ・甘さなど)、" +
-              "量や提供形態など、実際に食べたときのイメージが伝わる2〜3文の日本語にしてください。",
+              "量や提供形態など、実際に食べたときのイメージが伝わる2〜3文の日本語にしてください。" +
+              (avoidTrimmed
+                ? `また、この旅行者は次の食材を避けたいと考えています:「${avoidTrimmed}」。` +
+                  "この料理にそれらが含まれる可能性が少しでもあれば(隠し味・出汁・ソース等も含めて)、" +
+                  "warningフィールドに「エビペーストが使われていることが多い」のような短い日本語の注意を返してください。" +
+                  "含まれる可能性が低ければwarningは省略してください。"
+                : ""),
           },
         ],
       },
@@ -301,11 +317,18 @@ export async function explainDish(
         type: "object",
         properties: {
           explanation: { type: "string" },
+          warning: { type: "string" },
         },
         required: ["explanation"],
       },
     },
   });
 
-  return { explanation: result.explanation as string };
+  return {
+    explanation: result.explanation as string,
+    warning:
+      typeof result.warning === "string" && result.warning.trim().length > 0
+        ? (result.warning as string)
+        : undefined,
+  };
 }

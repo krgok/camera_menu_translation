@@ -73,6 +73,13 @@ export function useAnalyze() {
     [],
   );
 
+  // Clears stale error/warning banners (e.g. when the user goes back to the
+  // live camera after a failed scan).
+  const resetStatus = useCallback(() => {
+    setError(null);
+    setWarnings([]);
+  }, []);
+
   return {
     analyze,
     loading,
@@ -81,5 +88,6 @@ export function useAnalyze() {
     warnings,
     items,
     setItems,
+    resetStatus,
   };
 }

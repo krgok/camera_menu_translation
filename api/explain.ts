@@ -12,18 +12,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await requireUser(req.headers.authorization);
 
-    const { name, original_text, appMode = "menu" } = req.body as ExplainRequest;
+    const { name, original_text, appMode = "menu", avoid } =
+      req.body as ExplainRequest;
     if (!name) {
       res.status(400).json({ error: "name は必須です" });
       return;
     }
 
-    const { explanation, references } = await explainDish(
+    const { explanation, warning, references } = await explainDish(
       name,
       original_text,
       appMode,
+      avoid,
     );
-    res.status(200).json({ explanation, references });
+    res.status(200).json({ explanation, warning, references });
   } catch (e) {
     const message = e instanceof Error ? e.message : "説明の取得に失敗しました";
     const status = message.includes("認証") ? 401 : 500;
