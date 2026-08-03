@@ -166,9 +166,7 @@ export function CameraView({
             <button onClick={() => fileInputRef.current?.click()} disabled={loading}>
               写真を選択
             </button>
-            {history.length > 0 && (
-              <button onClick={() => setShowHistory((v) => !v)}>履歴</button>
-            )}
+            <button onClick={() => setShowHistory((v) => !v)}>履歴</button>
           </>
         )}
         <input
@@ -181,13 +179,19 @@ export function CameraView({
       </div>
 
       {showHistory && !frozenImage && (
-        <HistoryPanel
-          history={history}
-          onSelect={(entry) => {
-            onRestoreHistory(entry);
-            setShowHistory(false);
-          }}
-        />
+        history.length > 0 ? (
+          <HistoryPanel
+            history={history}
+            onSelect={(entry) => {
+              onRestoreHistory(entry);
+              setShowHistory(false);
+            }}
+          />
+        ) : (
+          <p className="app-hint">
+            この端末にはまだスキャン履歴がありません。履歴はスキャンした端末ごとに保存されます(別の端末の履歴はここには表示されません)。
+          </p>
+        )
       )}
 
       {frozenImage && (
