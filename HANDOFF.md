@@ -81,6 +81,7 @@ supabase/
 | `SUPABASE_ANON_KEY` | サーバー側トークン検証用 | 非公開 |
 | `GOOGLE_VISION_API_KEY` | Cloud Vision呼び出し | 非公開(絶対にクライアントに出さない) |
 | `GEMINI_API_KEY` | Gemini呼び出し | 非公開(同上) |
+| `ALLOWED_EMAILS` | 有料APIを使えるメールアドレス(カンマ区切り)。空なら全ログインユーザー可。不許可は403 | 非公開 |
 
 ## Supabase設定の注意点
 
@@ -103,6 +104,13 @@ supabase/
   - 音声読み上げ: Web Speech API(`src/lib/speech.ts`、ja-JP)。ItemList/SavedListに🔊ボタン
   - 保存に `mode` / `reference_links` 列を追加(`supabase/migrations/003_add_mode_references.sql`。**デプロイ前にSupabase SQL editorで実行必須**——未実行だと保存insertが失敗する)
   - 履歴エントリにも `appMode` を記録、復元時にモードも復元
+- 料理/地域ヒント・苦手食材(⚠警告)入力欄(localStorage永続化)、画像モードのみthinking有効(budget 1024)
+- 指差し注文モーダル: 原文を巨大表示+定型の注文フレーズ(`src/lib/orderPhrases.ts`、言語別の静的テーブル)+読み上げ+価格
+- 価格の円換算: 文字モードでGeminiがprice/currencyを抽出 → `/api/rates`(open.er-api.comをプロキシ、CDNで6時間キャッシュ、認証なし)→ `src/lib/currency.ts`(localStorage 12時間キャッシュ、オフライン時は古いレートで代用)
+- 説明の一括取得: `/api/explain-batch`(最大15件/1回のGemini呼び出し)。クライアントが15件ずつに分割して並列実行
+- 取得した説明は履歴エントリに書き戻す(`updateHistoryItems`)。履歴復元で再課金しない
+- テキスト保存: スマホは共有シート(`navigator.share`)、PCはダウンロード。`src/lib/download.ts`(iOS対策でrevokeを遅延)
+- 撮影後はカメラを停止(バッテリー対策)。`useCamera` は開始時に前のストリームを必ず解放
 
 ## これまでに踏んだ地雷(同じ轍を踏まないためのメモ)
 
@@ -112,11 +120,10 @@ supabase/
 4. **Gemini 2.5-flashはデフォルトでthinkingを使い遅い** → `thinkingConfig: {thinkingBudget: 0}` で解消
 5. **`Promise.all`は1つ失敗すると全部失敗** → `Promise.allSettled`に変更し、部分成功を返すように
 6. **Google OAuthの自動化ログインは弾かれる**(Google側のbot対策でブラウザ自動操作からのログインがハングする)。動作確認は必ず実機/手動で
+7. **`navigator.share` はタップ直後にしか呼べない**(awaitを挟むとユーザー操作の有効期限が切れる)。非同期生成するZIPは共有シートではなく通常ダウンロード
+8. **`useCamera.start()` で前のストリームを止めずに上書きすると再スキャンごとにカメラが増殖する**。世代カウンタで遅れて届いたストリームも解放
 
 ## 未実装・提案止まりの項目
-
-fable5によるレビューで提案されたが未着手:
-- **苦手食材/アレルギーの警告フラグ**(ローカル設定→プロンプトに追加するだけの小規模タスク)
 
 検討済みだが意図的に見送り:
 - 非同期ジョブ化/ポーリング(Vercel Hobby + 共有Supabaseでは過剰)

@@ -141,6 +141,7 @@ export function SavedList() {
         <PointOrderModal
           originalText={pointOrderItem.original_text}
           name={pointOrderItem.dish_name}
+          language={pointOrderItem.source_language}
           onClose={() => setPointOrderItem(null)}
         />
       )}

@@ -30,6 +30,10 @@ export interface MenuItem {
   // Museum mode only: fetched together with `explanation`.
   references?: Reference[];
   source_language?: string;
+  // Price as printed on the menu (text mode only), plus Gemini's best guess
+  // at the ISO 4217 currency, so the client can show a yen estimate.
+  price?: number;
+  currency?: string;
   box: { x: number; y: number; w: number; h: number };
   source: RecognitionMode;
 }
@@ -61,4 +65,23 @@ export interface ExplainResponse {
   explanation: string;
   warning?: string;
   references?: Reference[];
+}
+
+// One Gemini call explains a whole chunk of items (the client splits large
+// menus into parallel chunks). Results align with `items` by position;
+// null marks an item Gemini skipped.
+export interface ExplainBatchRequest {
+  items: { name: string; original_text?: string }[];
+  appMode?: AppMode;
+  avoid?: string;
+}
+
+export interface ExplainBatchResponse {
+  results: (ExplainResponse | null)[];
+}
+
+// JPY per 1 unit is `1 / rates[code]` (rates are "units per 1 JPY").
+export interface RatesResponse {
+  rates: Record<string, number>;
+  updated: string;
 }

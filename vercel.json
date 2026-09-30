@@ -5,6 +5,12 @@
     },
     "api/explain.ts": {
       "maxDuration": 30
+    },
+    "api/explain-batch.ts": {
+      "maxDuration": 60
+    },
+    "api/rates.ts": {
+      "maxDuration": 10
     }
   }
 }

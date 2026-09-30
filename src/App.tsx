@@ -5,7 +5,12 @@ import { useAnalyze } from "./hooks/useAnalyze";
 import { useExplain } from "./hooks/useExplain";
 import type { AppMode, MenuItem, RecognitionMode } from "./lib/types";
 import { cropThumbnail } from "./lib/image";
-import { loadHistory, pushHistory, type HistoryEntry } from "./lib/history";
+import {
+  loadHistory,
+  pushHistory,
+  updateHistoryItems,
+  type HistoryEntry,
+} from "./lib/history";
 import { AuthButton } from "./components/AuthButton";
 import { AppModeSwitch } from "./components/AppModeSwitch";
 import { ModeToggle } from "./components/ModeToggle";
@@ -42,6 +47,11 @@ function App() {
   const [frozenImage, setFrozenImage] = useState<string | null>(null);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // Timestamp of the history entry the on-screen items belong to (null
+  // while a new scan is still in flight), so fetched explanations can be
+  // written back to it.
+  const [currentScanTs, setCurrentScanTs] = useState<number | null>(null);
+  const [explainingAll, setExplainingAll] = useState(false);
   const {
     analyze,
     loading,
@@ -52,7 +62,7 @@ function App() {
     setItems,
     resetStatus,
   } = useAnalyze();
-  const { explain, loadingIndex, setLoadingIndex } = useExplain();
+  const { explain, explainBatch, loadingIndex, setLoadingIndex } = useExplain();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -82,6 +92,14 @@ function App() {
     localStorage.setItem(AVOID_KEY, avoidIngredients);
   }, [avoidIngredients]);
 
+  // Write explanations/warnings fetched after the scan back into its history
+  // entry — otherwise restoring from history loses them and re-bills the API.
+  useEffect(() => {
+    if (currentScanTs === null || items.length === 0) return;
+    updateHistoryItems(currentScanTs, items);
+    setHistory(loadHistory());
+  }, [items, currentScanTs]);
+
   const handleAppModeChange = (next: AppMode) => {
     if (next === appMode || loading) return;
     setAppMode(next);
@@ -90,12 +108,13 @@ function App() {
     setFrozenImage(null);
     setItems([]);
     setSavedNames(new Set());
+    setCurrentScanTs(null);
   };
 
-  const handleCapture = async (image: string) => {
-    setFrozenImage(image);
-    setSavedNames(new Set());
-    if (modes.length === 0) return;
+  // Shared by a fresh capture and "retry with the same photo": a successful
+  // result becomes a new history entry that later explanations write into.
+  const runAnalysis = async (image: string) => {
+    setCurrentScanTs(null);
     const result = await analyze(image, modes, appMode, contextHint);
     if (result.length > 0) {
       const entry: HistoryEntry = {
@@ -106,16 +125,26 @@ function App() {
       };
       pushHistory(entry);
       setHistory(loadHistory());
+      setCurrentScanTs(entry.timestamp);
     }
   };
 
+  const handleCapture = async (image: string) => {
+    setFrozenImage(image);
+    setSavedNames(new Set());
+    setCurrentScanTs(null);
+    if (modes.length === 0) return;
+    await runAnalysis(image);
+  };
+
   const handleRetry = () => {
-    if (frozenImage) analyze(frozenImage, modes, appMode, contextHint);
+    if (frozenImage) void runAnalysis(frozenImage);
   };
 
   const handleRescan = () => {
     setFrozenImage(null);
     setItems([]);
+    setCurrentScanTs(null);
     // Don't leave a stale error/warning banner from the previous attempt
     // hanging under the live camera.
     resetStatus();
@@ -126,9 +155,11 @@ function App() {
     setItems(entry.items);
     setSavedNames(new Set());
     setAppMode(entry.appMode ?? "menu");
+    setCurrentScanTs(entry.timestamp);
     resetStatus();
     // An in-flight explain belongs to the previous scan's indices.
     setLoadingIndex(null);
+    setExplainingAll(false);
   };
 
   const handleExplain = async (index: number) => {
@@ -154,6 +185,49 @@ function App() {
       );
     }
     setLoadingIndex(null);
+  };
+
+  // Fetches every missing explanation, splitting into chunks of 15 that run
+  // in parallel (one Gemini call per chunk) so even a long menu finishes in
+  // roughly the time of a single call.
+  const handleExplainAll = async () => {
+    const targets = items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !item.explanation);
+    if (targets.length === 0) return;
+
+    const CHUNK = 15;
+    const chunks: (typeof targets)[] = [];
+    for (let i = 0; i < targets.length; i += CHUNK) {
+      chunks.push(targets.slice(i, i + CHUNK));
+    }
+
+    setExplainingAll(true);
+    await Promise.all(
+      chunks.map(async (chunk) => {
+        const results = await explainBatch(
+          chunk.map((c) => c.item),
+          appMode,
+          avoidIngredients,
+        );
+        setItems((prev) =>
+          prev.map((it, i) => {
+            // Reference-compare (same guard as handleExplain) so results
+            // can't land on a different scan restored mid-fetch.
+            const k = chunk.findIndex((c) => c.index === i && c.item === it);
+            const result = k >= 0 ? results[k] : null;
+            if (!result) return it;
+            return {
+              ...it,
+              explanation: result.explanation,
+              warning: result.warning,
+              references: result.references,
+            };
+          }),
+        );
+      }),
+    );
+    setExplainingAll(false);
   };
 
   const handleExportText = () => {
@@ -253,6 +327,8 @@ function App() {
             onExplain={handleExplain}
             explainingIndex={loadingIndex}
             onExportText={handleExportText}
+            onExplainAll={handleExplainAll}
+            explainingAll={explainingAll}
           />
         </>
       ) : (

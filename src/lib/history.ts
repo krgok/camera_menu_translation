@@ -23,6 +23,23 @@ export function loadHistory(): HistoryEntry[] {
   }
 }
 
+/**
+ * Replaces the items of an existing entry (matched by timestamp). Used to
+ * write lazily-fetched explanations back, so restoring a scan from history
+ * doesn't lose them and re-bill the API.
+ */
+export function updateHistoryItems(timestamp: number, items: MenuItem[]) {
+  try {
+    const current = loadHistory();
+    const index = current.findIndex((e) => e.timestamp === timestamp);
+    if (index < 0) return;
+    current[index] = { ...current[index], items };
+    localStorage.setItem(KEY, JSON.stringify(current));
+  } catch {
+    // Same policy as pushHistory: history is best-effort.
+  }
+}
+
 export function pushHistory(entry: HistoryEntry) {
   try {
     const current = loadHistory();

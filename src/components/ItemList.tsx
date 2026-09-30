@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { MenuItem } from "../lib/types";
 import { useSpeechController } from "../hooks/useSpeechController";
+import { formatPrice, useRates } from "../lib/currency";
 import { SpeechRateSwitch } from "./SpeechRateSwitch";
 import { PointOrderModal } from "./PointOrderModal";
 
@@ -11,6 +12,9 @@ interface Props {
   onSave: (item: MenuItem) => void;
   savedNames: Set<string>;
   explainingIndex: number | null;
+  // "Show all explanations" mode: every row renders expanded.
+  expandAll: boolean;
+  explainingAll: boolean;
 }
 
 export function ItemList({
@@ -20,7 +24,10 @@ export function ItemList({
   onSave,
   savedNames,
   explainingIndex,
+  expandAll,
+  explainingAll,
 }: Props) {
+  const rates = useRates();
   const {
     speechSupported,
     speechRate,
@@ -39,7 +46,7 @@ export function ItemList({
       <ul className="item-list">
         {items.map((item, i) => {
           const key = String(i);
-          const active = activeIndex === i;
+          const active = expandAll || activeIndex === i;
           const saved = savedNames.has(item.name);
           return (
             <li
@@ -74,6 +81,11 @@ export function ItemList({
                     </button>
                   )}
                 </div>
+                {typeof item.price === "number" && (
+                  <div className="item-list-price">
+                    {formatPrice(item.price, item.currency, rates)}
+                  </div>
+                )}
                 {active && (
                   <>
                     {item.original_text && (
@@ -95,7 +107,7 @@ export function ItemList({
                       </div>
                     ) : (
                       <div className="item-list-explanation item-list-loading">
-                        {explainingIndex === i
+                        {explainingIndex === i || explainingAll
                           ? "説明を読み込み中..."
                           : "説明を取得できませんでした"}
                       </div>
@@ -170,6 +182,9 @@ export function ItemList({
         <PointOrderModal
           originalText={pointOrderItem.original_text}
           name={pointOrderItem.name}
+          language={pointOrderItem.source_language}
+          price={pointOrderItem.price}
+          currency={pointOrderItem.currency}
           onClose={() => setPointOrderItem(null)}
         />
       )}

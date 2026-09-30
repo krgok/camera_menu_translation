@@ -3,16 +3,40 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Bumped on every start/stop so a getUserMedia call that resolves after
+  // the user already froze the frame (or rescanned again) can tell it's
+  // stale and release its stream instead of leaking it.
+  const generationRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
+  const releaseStream = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const stop = useCallback(() => {
+    generationRef.current += 1;
+    releaseStream();
+    setReady(false);
+  }, []);
+
   const start = useCallback(async () => {
+    // Always release the previous stream first — overwriting streamRef
+    // without stopping it left the old camera running on every rescan.
+    releaseStream();
+    const generation = ++generationRef.current;
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
+      if (generation !== generationRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -20,17 +44,12 @@ export function useCamera() {
       }
       setReady(true);
     } catch (e) {
+      if (generation !== generationRef.current) return;
       setError(
         e instanceof Error ? e.message : "カメラを起動できませんでした",
       );
       setReady(false);
     }
-  }, []);
-
-  const stop = useCallback(() => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    setReady(false);
   }, []);
 
   useEffect(() => stop, [stop]);

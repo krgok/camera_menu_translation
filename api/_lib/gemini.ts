@@ -61,14 +61,13 @@ export async function groupMenuItems(
 ): Promise<MenuItem[]> {
   if (blocks.length === 0) return [];
 
-  // Drop price/punctuation-only fragments before sending to Gemini: they're
-  // numerous on real menus and inflate the prompt without adding items.
-  // Museum mode keeps them — bare numbers are often years/dates that matter
-  // for exhibit labels.
-  const isPriceOrNoise = /^[\d.,:\-–—°$€¥£₹฿%\s]+$/;
+  // Drop punctuation-only fragments (pure noise). Prices are kept now — the
+  // menu prompt extracts them for the yen conversion, and museum labels need
+  // bare numbers for years/dates.
+  const isNoise = /^[.,:\-–—°%\s]+$/;
   const indexed = blocks
     .map((b, i) => ({ index: i, text: b.text }))
-    .filter(({ text }) => appMode === "museum" || !isPriceOrNoise.test(text));
+    .filter(({ text }) => !isNoise.test(text));
 
   const prompt =
     appMode === "museum"
@@ -82,7 +81,10 @@ export async function groupMenuItems(
         "同じメニュー項目を構成する断片をグループ化し、各項目について日本語の料理名・" +
         "原文表記・原文の言語(ISO 639-1コード、判別できなければ省略)・" +
         "原文表記の発音記号(IPA。注文時に声に出して読む助けになるように)を返してください。" +
-        "説明文は不要です。価格や無関係な文字は無視してください。" +
+        "その項目の価格が記載されていれば、price(数値のみ。カンマ区切りは除く)と" +
+        "currency(ISO 4217の通貨コード。通貨記号・言語・地域から推定。例: タイ語ならTHB)も返してください。" +
+        "価格の断片は料理名のグループには含めず(block_indicesには料理名の断片だけを入れる)、" +
+        "説明文は不要です。その他の無関係な文字は無視してください。" +
         hintClause(contextHint) +
         "\n\n" +
         JSON.stringify(indexed);
@@ -109,6 +111,8 @@ export async function groupMenuItems(
                 original_text: { type: "string" },
                 pronunciation: { type: "string" },
                 source_language: { type: "string" },
+                price: { type: "number" },
+                currency: { type: "string" },
                 block_indices: { type: "array", items: { type: "integer" } },
               },
               required: ["name", "block_indices"],
@@ -137,6 +141,14 @@ export async function groupMenuItems(
       original_text: raw.original_text,
       pronunciation: raw.pronunciation,
       source_language: raw.source_language,
+      price:
+        appMode === "menu" && typeof raw.price === "number" && raw.price > 0
+          ? raw.price
+          : undefined,
+      currency:
+        appMode === "menu" && typeof raw.currency === "string"
+          ? raw.currency.trim().toUpperCase() || undefined
+          : undefined,
       box: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
       source: "text",
     });
@@ -331,4 +343,98 @@ export async function explainDish(
         ? (result.warning as string)
         : undefined,
   };
+}
+
+function toWikipediaReferences(titles: unknown): Reference[] | undefined {
+  const refs: Reference[] = (Array.isArray(titles) ? titles : [])
+    .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+    .slice(0, 3)
+    .map((title) => ({
+      title,
+      url: `https://ja.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(title)}&go=Go`,
+    }));
+  return refs.length > 0 ? refs : undefined;
+}
+
+/**
+ * Explains a chunk of items in ONE Gemini call (the "show all explanations"
+ * path). Much cheaper and faster than N single calls; the client splits big
+ * menus into parallel chunks so each call stays well inside the timeout.
+ * Results align with `entries` by position; null where Gemini skipped one.
+ */
+export async function explainDishesBatch(
+  entries: { name: string; original_text?: string }[],
+  appMode: AppMode = "menu",
+  avoid?: string,
+): Promise<({ explanation: string; warning?: string; references?: Reference[] } | null)[]> {
+  if (entries.length === 0) return [];
+  const indexed = entries.map((e, index) => ({
+    index,
+    name: e.name,
+    original_text: e.original_text,
+  }));
+  const avoidTrimmed = avoid?.trim();
+
+  const prompt =
+    appMode === "museum"
+      ? "以下は博物館・美術館・観光地の展示対象のリストです(index付き、original_textは現地で読み取った原文)。" +
+        "現地の言語や歴史背景を知らない訪問者向けに、それぞれについて日本語で要約した説明" +
+        "(それが何か、いつ・誰が・なぜ作った/起きたか、歴史的・文化的意義。3〜5文。確実でないことは断定しない)と、" +
+        "Wikipediaで調べるのに適した記事名(reference_titles、0〜3個)を返してください。\n\n" +
+        JSON.stringify(indexed)
+      : "以下はメニュー項目のリストです(index付き、original_textはメニュー上の原文)。" +
+        "現地の言葉が読めない旅行者が注文するか判断できるように、それぞれについて主な食材、" +
+        "調理法、味の特徴(辛さ・甘さなど)、量や提供形態が伝わる2〜3文の日本語の説明を返してください。" +
+        (avoidTrimmed
+          ? `また、この旅行者は次の食材を避けたいと考えています:「${avoidTrimmed}」。` +
+            "含まれる可能性が少しでもある項目には(隠し味・出汁・ソース等も含めて)warningに短い日本語の注意を入れ、" +
+            "可能性が低ければwarningは省略してください。"
+          : "") +
+        "\n\n" +
+        JSON.stringify(indexed);
+
+  const result = await callGemini({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      ...FAST_GENERATION_CONFIG,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                index: { type: "integer" },
+                explanation: { type: "string" },
+                warning: { type: "string" },
+                reference_titles: { type: "array", items: { type: "string" } },
+              },
+              required: ["index", "explanation"],
+            },
+          },
+        },
+        required: ["items"],
+      },
+    },
+  });
+
+  const out: ({ explanation: string; warning?: string; references?: Reference[] } | null)[] =
+    entries.map(() => null);
+  for (const raw of result.items ?? []) {
+    const i = raw.index;
+    if (typeof i !== "number" || i < 0 || i >= entries.length) continue;
+    if (typeof raw.explanation !== "string" || !raw.explanation.trim()) continue;
+    out[i] = {
+      explanation: raw.explanation,
+      warning:
+        appMode === "menu" && typeof raw.warning === "string" && raw.warning.trim()
+          ? raw.warning
+          : undefined,
+      references:
+        appMode === "museum" ? toWikipediaReferences(raw.reference_titles) : undefined,
+    };
+  }
+  return out;
 }

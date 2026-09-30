@@ -1,4 +1,6 @@
 import type { HistoryEntry } from "./history";
+import { downloadBlob } from "./download";
+import { formatPrice, getCachedRates } from "./currency";
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
@@ -97,6 +99,9 @@ function buildNotes(entry: HistoryEntry): string {
     if (item.original_text) lines.push(`- 原文表記: ${inline(item.original_text)}`);
     if (item.pronunciation) lines.push(`- 発音(IPA): [${inline(item.pronunciation)}]`);
     if (item.source_language) lines.push(`- 言語: ${inline(item.source_language)}`);
+    if (typeof item.price === "number") {
+      lines.push(`- 価格: ${formatPrice(item.price, item.currency, getCachedRates())}`);
+    }
     if (item.explanation) lines.push(`- 説明: ${inline(item.explanation)}`);
     if (item.references && item.references.length > 0) {
       lines.push("- 参考リンク:");
@@ -144,15 +149,7 @@ export async function exportHistoryZip(entries: HistoryEntry[]): Promise<void> {
   const now = new Date();
   const zipName = `scan-history_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.zip`;
 
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = zipName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  // Plain download (not the share sheet): ZIP generation is async, so the
+  // user gesture share() needs has expired by now.
+  downloadBlob(blob, zipName);
 }

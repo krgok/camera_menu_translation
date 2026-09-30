@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireUser } from "./_lib/auth.js";
+import { errorStatus, requireUser } from "./_lib/auth.js";
 import { detectText } from "./_lib/vision.js";
 import { groupMenuItems, identifyDishes } from "./_lib/gemini.js";
 import type { AnalyzeRequest, MenuItem } from "../src/lib/types";
@@ -123,7 +123,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({ items, warnings: warnings.length ? warnings : undefined });
   } catch (e) {
     const message = e instanceof Error ? e.message : "解析に失敗しました";
-    const status = message.includes("認証") ? 401 : 500;
-    res.status(status).json({ error: message });
+    res.status(errorStatus(e)).json({ error: message });
   }
 }

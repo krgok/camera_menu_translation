@@ -24,6 +24,8 @@ interface Props {
   onExplain: (index: number) => void;
   explainingIndex: number | null;
   onExportText: () => void;
+  onExplainAll: () => void;
+  explainingAll: boolean;
 }
 
 export function CameraView({
@@ -43,18 +45,29 @@ export function CameraView({
   onExplain,
   explainingIndex,
   onExportText,
+  onExplainAll,
+  explainingAll,
 }: Props) {
-  const { videoRef, ready, error: cameraError, start, captureFrame } = useCamera();
+  const { videoRef, ready, error: cameraError, start, stop, captureFrame } =
+    useCamera();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [expandAll, setExpandAll] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Turn the camera off while the user reads results — it's hidden anyway,
+  // and leaving it running drains the battery on a travel day.
   useEffect(() => {
-    if (!frozenImage) start();
-  }, [frozenImage, start]);
+    if (frozenImage) {
+      stop();
+    } else {
+      start();
+    }
+  }, [frozenImage, start, stop]);
 
   useEffect(() => {
     setActiveIndex(null);
+    setExpandAll(false);
   }, [frozenImage]);
 
   const handleScan = () => {
@@ -154,8 +167,24 @@ export function CameraView({
         {frozenImage ? (
           <>
             <button onClick={onRescan}>再スキャン</button>
+            {items.length > 0 &&
+              (expandAll ? (
+                <button onClick={() => setExpandAll(false)}>📕 たたむ</button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setExpandAll(true);
+                    onExplainAll();
+                  }}
+                  disabled={explainingAll}
+                >
+                  📖 全部の説明を見る
+                </button>
+              ))}
             {items.length > 0 && (
-              <button onClick={onExportText}>📄 テキスト保存</button>
+              <button onClick={onExportText} disabled={explainingAll}>
+                📄 テキスト保存・共有
+              </button>
             )}
           </>
         ) : (
@@ -202,6 +231,8 @@ export function CameraView({
           onSave={onSave}
           savedNames={savedNames}
           explainingIndex={explainingIndex}
+          expandAll={expandAll}
+          explainingAll={explainingAll}
         />
       )}
     </div>

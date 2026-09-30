@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { containRect, boxToStyle } from "../lib/coords";
 import type { MenuItem } from "../lib/types";
 import { OverlayMarker } from "./OverlayMarker";
@@ -26,6 +26,19 @@ export function OverlayLayer({
     h: number;
   } | null>(null);
 
+  // Track the container's size continuously (not just at image load) so
+  // markers stay aligned after a phone rotation or window resize.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () =>
+      setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const rect =
     naturalSize && containerSize
       ? containRect(
@@ -45,10 +58,6 @@ export function OverlayLayer({
         onLoad={(e) => {
           const img = e.currentTarget;
           setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-          setContainerSize({
-            w: img.parentElement?.clientWidth ?? img.clientWidth,
-            h: img.parentElement?.clientHeight ?? img.clientHeight,
-          });
         }}
       />
       {rect &&
