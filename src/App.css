@@ -949,3 +949,24 @@
   color: #bbb;
   margin-left: 0.4rem;
 }
+
+/* --- language hint, romanization, similar dish, spice --- */
+.item-list-roman {
+  display: block;
+  color: #9ad4a8;
+  font-size: 0.9rem;
+}
+.item-similar,
+.item-spice {
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+  color: #ddd;
+}
+.item-spice-num {
+  color: #aaa;
+  font-size: 0.8rem;
+}
+.saved-list-explanation,
+.item-list-explanation {
+  white-space: pre-line;
+}

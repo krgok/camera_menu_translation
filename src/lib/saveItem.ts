@@ -12,6 +12,8 @@ export interface SaveRow {
   reference_links: unknown;
   // Album fields (migration 006).
   trip?: string | null;
+  // Migration 007; dropped silently if the column does not exist yet.
+  romanization?: string | null;
 }
 
 export type SaveResult =
@@ -29,9 +31,9 @@ export function isMissingColumn(error: { code?: string; message?: string } | nul
 }
 
 /**
- * Inserts a saved item. If the album migration (006) hasn't been run, the
- * `trip` column doesn't exist: retry without it so saving keeps working, and
- * report that the trip was not stored.
+ * Inserts a saved item. If a newer migration (006 trip, 007 romanization)
+ * hasn't been run, the column doesn't exist: retry without those optional
+ * columns so saving keeps working, and report if the trip was not stored.
  */
 export async function insertSavedItem(
   client: Pick<SupabaseClient, "from">,
@@ -40,10 +42,10 @@ export async function insertSavedItem(
   const first = await client.from("saved_items").insert(row);
   if (!first.error) return { ok: true, droppedTrip: false };
 
-  if (row.trip && isMissingColumn(first.error)) {
-    const { trip: _trip, ...legacy } = row;
+  if ((row.trip || row.romanization) && isMissingColumn(first.error)) {
+    const { trip: _trip, romanization: _romanization, ...legacy } = row;
     const retry = await client.from("saved_items").insert(legacy);
-    if (!retry.error) return { ok: true, droppedTrip: true };
+    if (!retry.error) return { ok: true, droppedTrip: !!row.trip };
     return { ok: false, message: retry.error.message };
   }
   return { ok: false, message: first.error.message };

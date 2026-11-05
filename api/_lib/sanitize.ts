@@ -91,3 +91,10 @@ export function cleanPrices(value: unknown): { label?: string; value: number }[]
   }
   return out.length > 0 ? out : undefined;
 }
+
+/** Spice level 0 (not spicy) .. 4 (very spicy); anything else is dropped. */
+export function cleanSpice(value: unknown): 0 | 1 | 2 | 3 | 4 | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 4
+    ? (value as 0 | 1 | 2 | 3 | 4)
+    : undefined;
+}

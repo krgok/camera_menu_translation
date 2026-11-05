@@ -36,8 +36,8 @@ describe("Gemini 呼び出しの費用・安全設定", () => {
   });
 
   it.each([
-    ["explainDish", () => explainDish("a"), { explanation: "e" }, 1024, 0],
-    ["explainDishesBatch", () => explainDishesBatch([{ name: "a" }]), { items: [] }, 4096, 0],
+    ["explainDish", () => explainDish("a"), { explanation: "e" }, 1280, 0],
+    ["explainDishesBatch", () => explainDishesBatch([{ name: "a" }]), { items: [] }, 6144, 0],
     [
       "groupMenuItems",
       () => groupMenuItems([{ text: "a", box: { x: 0, y: 0, w: 1, h: 1 } }]),

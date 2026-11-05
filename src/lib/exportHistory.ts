@@ -97,12 +97,15 @@ function buildNotes(entry: HistoryEntry): string {
   entry.items.forEach((item, i) => {
     lines.push(`## ${i + 1}. ${inline(item.name)}`, "");
     if (item.original_text) lines.push(`- 原文表記: ${inline(item.original_text)}`);
+    if (item.romanization) lines.push(`- 読み(ローマ字): ${inline(item.romanization)}`);
     if (item.pronunciation) lines.push(`- 発音(IPA): [${inline(item.pronunciation)}]`);
     if (item.source_language) lines.push(`- 言語: ${inline(item.source_language)}`);
     if (typeof item.price === "number") {
       lines.push(`- 価格: ${formatPrice(item.price, item.currency, getCachedRates())}`);
     }
     if (item.explanation) lines.push(`- 説明: ${inline(item.explanation)}`);
+    if (item.similar_ja) lines.push(`- 日本でいうと: ${inline(item.similar_ja)}`);
+    if (typeof item.spice === "number") lines.push(`- 辛さ: ${item.spice}/4`);
     if (item.references && item.references.length > 0) {
       lines.push("- 参考リンク:");
       for (const ref of item.references) {

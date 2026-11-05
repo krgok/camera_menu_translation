@@ -129,6 +129,9 @@ export function ItemList({
                     {item.original_text && (
                       <div className="item-list-original">
                         {item.original_text}
+                        {item.romanization && (
+                          <span className="item-list-roman">{item.romanization}</span>
+                        )}
                         {item.pronunciation && (
                           <span className="item-list-ipa">
                             [{item.pronunciation}]
@@ -151,6 +154,15 @@ export function ItemList({
                         {explainingIndex === i || explainingAll
                           ? "説明を読み込み中..."
                           : "説明を取得できませんでした"}
+                      </div>
+                    )}
+                    {item.explanation && item.similar_ja && (
+                      <div className="item-similar">🇯🇵 日本でいうと: {item.similar_ja}</div>
+                    )}
+                    {item.explanation && typeof item.spice === "number" && (
+                      <div className="item-spice" aria-label={`辛さ ${item.spice}/4`}>
+                        辛さ: {"🌶".repeat(item.spice) || "辛くない"}
+                        <span className="item-spice-num"> ({item.spice}/4)</span>
                       </div>
                     )}
                     {item.explanation && item.references && item.references.length > 0 && (

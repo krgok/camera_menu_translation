@@ -175,6 +175,9 @@ export function SavedList() {
                 {item.original_text && (
                   <div className="saved-list-original">
                     {item.original_text}
+                    {item.romanization && (
+                      <span className="item-list-roman">{item.romanization}</span>
+                    )}
                     {item.pronunciation && (
                       <span className="item-list-ipa">[{item.pronunciation}]</span>
                     )}

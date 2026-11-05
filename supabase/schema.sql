@@ -21,6 +21,8 @@ create table if not exists saved_items (
   trip           text,
   rating         smallint,
   note           text,
+  -- Romanization for non-Latin scripts (see migrations/007).
+  romanization   text,
   created_at     timestamptz not null default now()
 );
 

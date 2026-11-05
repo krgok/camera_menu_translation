@@ -19,13 +19,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Count this paid call (per user + global, per day) before it happens.
     await consumeQuota(user.id, token, "explain");
 
-    const { explanation, warning, risk, references } = await explainDish(
+    const { explanation, warning, risk, similar_ja, spice, references } = await explainDish(
       name,
       original_text,
       appMode,
       restrictions,
     );
-    res.status(200).json({ explanation, warning, risk, references });
+    res.status(200).json({ explanation, warning, risk, similar_ja, spice, references });
   } catch (e) {
     respondError(res, e, "説明の取得に失敗しました");
   }

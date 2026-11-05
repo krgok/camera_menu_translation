@@ -32,7 +32,13 @@ describe("insertSavedItem", () => {
     expect(c.insert).toHaveBeenCalledTimes(2);
     expect((c.insert.mock.calls as unknown as [Record<string, unknown>][])[1][0]).not.toHaveProperty("trip");
   });
-  it("旅行名なしなら再試行しない(他のエラーはそのまま返す)", async () => {
+  it("ローマ字だけ(旅行名なし)で 007 未実行でも、ローマ字なしで保存でき、旅行名は落ちていないと報告する", async () => {
+    const c = client([{ error: { code: "PGRST204", message: "Could not find the 'romanization' column" } }, { error: null }]);
+    const r = await insertSavedItem(c as never, { ...row, romanization: "phàt thai" });
+    expect(r).toEqual({ ok: true, droppedTrip: false });
+    expect((c.insert.mock.calls as unknown as [Record<string, unknown>][])[1][0]).not.toHaveProperty("romanization");
+  });
+  it("旅行名もローマ字も無ければ再試行しない(他のエラーはそのまま返す)", async () => {
     const c = client([{ error: { code: "42501", message: "RLS" } }]);
     expect(await insertSavedItem(c as never, row)).toEqual({ ok: false, message: "RLS" });
     expect(c.insert).toHaveBeenCalledTimes(1);
