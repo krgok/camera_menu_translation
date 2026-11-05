@@ -1,14 +1,17 @@
+import { safeBox } from "./coords";
+
 /** Crops the region described by a normalized (0-1000) box out of a data URL
  * image and returns a small JPEG thumbnail, for saving alongside an item. */
 export function cropThumbnail(
   imageDataUrl: string,
-  box: { x: number; y: number; w: number; h: number },
+  rawBox: { x: number; y: number; w: number; h: number },
   maxSize = 120,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onerror = () => reject(new Error("画像の読み込みに失敗しました"));
     img.onload = () => {
+      const box = safeBox(rawBox);
       const sx = (box.x / 1000) * img.width;
       const sy = (box.y / 1000) * img.height;
       const sw = Math.max(1, (box.w / 1000) * img.width);
