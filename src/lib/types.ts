@@ -17,6 +17,19 @@ export interface Reference {
 // relative to the captured still image (top-left origin).
 // `explanation` is fetched lazily (see /api/explain) after the user taps an
 // item, so the initial /api/analyze pass stays fast and cheap.
+// How likely a dish conflicts with the user's dietary profile (menu mode only,
+// returned together with the explanation). "unknown" is deliberate: when the
+// model cannot tell, it must not guess "low".
+export type Risk = "high" | "medium" | "low" | "unknown";
+
+// Dietary restrictions sent with explain requests. Keys are validated on the
+// server against fixed lists (see api/_lib/restrictions.ts).
+export interface RestrictionsPayload {
+  allergies: string[];
+  dislikes: string[];
+  diets: string[];
+}
+
 export interface MenuItem {
   name: string;
   original_text?: string;
@@ -27,6 +40,7 @@ export interface MenuItem {
   // Set when the dish may contain an ingredient the user asked to avoid
   // (fetched together with `explanation`).
   warning?: string;
+  risk?: Risk;
   // Museum mode only: fetched together with `explanation`.
   references?: Reference[];
   source_language?: string;
@@ -56,14 +70,16 @@ export interface ExplainRequest {
   name: string;
   original_text?: string;
   appMode?: AppMode;
-  // Comma/space-separated ingredients the user wants to avoid (allergies,
-  // dislikes). Menu mode only — museum explanations ignore it.
+  // Free-text ingredients the user wants to avoid. Menu mode only — museum
+  // explanations ignore it.
   avoid?: string;
+  restrictions?: RestrictionsPayload;
 }
 
 export interface ExplainResponse {
   explanation: string;
   warning?: string;
+  risk?: Risk;
   references?: Reference[];
 }
 
@@ -74,6 +90,7 @@ export interface ExplainBatchRequest {
   items: { name: string; original_text?: string }[];
   appMode?: AppMode;
   avoid?: string;
+  restrictions?: RestrictionsPayload;
 }
 
 export interface ExplainBatchResponse {

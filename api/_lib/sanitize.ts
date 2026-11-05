@@ -71,3 +71,9 @@ export function cleanName(value: unknown): string | undefined {
 export function capItems<T>(items: T[]): T[] {
   return items.slice(0, MAX_RESULT_ITEMS);
 }
+
+export function cleanRisk(value: unknown): "high" | "medium" | "low" | "unknown" | undefined {
+  return value === "high" || value === "medium" || value === "low" || value === "unknown"
+    ? value
+    : undefined;
+}

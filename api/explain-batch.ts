@@ -17,11 +17,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     assertBodySize(req.headers["content-length"]);
     // One Gemini call per request: the client chunks bigger menus (see
     // MAX_BATCH_ITEMS) so each call stays inside the timeout.
-    const { items, appMode, avoid } = validateBatchBody(req.body);
+    const { items, appMode, restrictions } = validateBatchBody(req.body);
     // Count this paid call (per user + global, per day) before it happens.
     await consumeQuota(user.id, token, "explain_batch");
 
-    const results = await explainDishesBatch(items, appMode, avoid);
+    const results = await explainDishesBatch(items, appMode, restrictions);
     res.status(200).json({ results });
   } catch (e) {
     respondError(res, e, "説明の取得に失敗しました");

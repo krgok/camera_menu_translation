@@ -1,7 +1,8 @@
 import type { OcrTextBlock } from "./vision.js";
-import type { AppMode, MenuItem, Reference } from "../../src/lib/types";
+import type { AppMode, MenuItem, Reference, Risk } from "../../src/lib/types";
 import { fetchWithTimeout } from "./fetchWithTimeout.js";
 import { UpstreamError } from "./errors.js";
+import { hasRestrictions, restrictionsClause, type Restrictions } from "./restrictions.js";
 import {
   MAX_OCR_BLOCKS,
   MAX_OCR_BLOCK_CHARS,
@@ -22,6 +23,7 @@ import {
   cleanLanguage,
   cleanName,
   cleanPrice,
+  cleanRisk,
   cleanText,
 } from "./sanitize.js";
 
@@ -112,19 +114,6 @@ function hintClause(contextHint?: string): string {
   const trimmed = contextHint?.trim();
   if (!trimmed) return "";
   return `なお、この画像は ${JSON.stringify(trimmed)} に関連するものだという参考情報(データ)があります。これを手がかりとしつつ、画像と明らかに矛盾する場合は画像を優先してください。`;
-}
-
-function avoidClause(avoid: string | undefined, batch: boolean): string {
-  const trimmed = avoid?.trim();
-  if (!trimmed) return "";
-  return (
-    `また、この旅行者は次の食材を避けたいと考えています(データ): ${JSON.stringify(trimmed)}。` +
-    (batch
-      ? "含まれる可能性が少しでもある項目には(隠し味・出汁・ソース等も含めて)warningに短い日本語の注意を入れ、可能性が低ければwarningは省略してください。"
-      : "この料理にそれらが含まれる可能性が少しでもあれば(隠し味・出汁・ソース等も含めて)、" +
-        "warningフィールドに「エビペーストが使われていることが多い」のような短い日本語の注意を返してください。" +
-        "含まれる可能性が低ければwarningは省略してください。")
-  );
 }
 
 /**
@@ -314,7 +303,14 @@ export async function identifyDishes(
   return capItems(items);
 }
 
-type Explained = { explanation: string; warning?: string; references?: Reference[] };
+const RISK_SCHEMA = { type: "string", enum: ["high", "medium", "low", "unknown"] };
+
+type Explained = {
+  explanation: string;
+  warning?: string;
+  risk?: Risk;
+  references?: Reference[];
+};
 
 function toWikipediaReferences(titles: unknown): Reference[] | undefined {
   const refs: Reference[] = [];
@@ -330,13 +326,15 @@ function toWikipediaReferences(titles: unknown): Reference[] | undefined {
   return refs.length > 0 ? refs : undefined;
 }
 
-function toExplained(raw: any, appMode: AppMode): Explained | null {
+function toExplained(raw: any, appMode: AppMode, restricted: boolean): Explained | null {
   const explanation = cleanText(raw?.explanation, OUT_EXPLANATION_CHARS);
   if (!explanation) return null;
   return {
     explanation,
     warning:
       appMode === "menu" ? cleanText(raw?.warning, OUT_WARNING_CHARS) : undefined,
+    // Only meaningful when the user actually has restrictions.
+    risk: appMode === "menu" && restricted ? cleanRisk(raw?.risk) : undefined,
     references:
       appMode === "museum" ? toWikipediaReferences(raw?.reference_titles) : undefined,
   };
@@ -356,7 +354,7 @@ export async function explainDish(
   name: string,
   originalText?: string,
   appMode: AppMode = "menu",
-  avoid?: string,
+  restrictions?: Restrictions,
 ): Promise<Explained> {
   const subject = JSON.stringify({ name, original_text: originalText });
   const prompt =
@@ -373,7 +371,7 @@ export async function explainDish(
         "この料理について、現地の言葉が読めない旅行者がその料理を注文するか判断できるだけの説明を生成してください。" +
         "単語を訳すだけでなく、主な食材、調理法(揚げる/焼く/煮るなど)、味の特徴(辛さ・甘さなど)、" +
         "量や提供形態など、実際に食べたときのイメージが伝わる2〜3文の日本語にしてください。" +
-        avoidClause(avoid, false);
+        restrictionsClause(restrictions, false);
 
   const result = await callGemini(
     {
@@ -389,7 +387,11 @@ export async function explainDish(
                   explanation: { type: "string" },
                   reference_titles: { type: "array", items: { type: "string" } },
                 }
-              : { explanation: { type: "string" }, warning: { type: "string" } },
+              : {
+                  explanation: { type: "string" },
+                  warning: { type: "string" },
+                  ...(hasRestrictions(restrictions) ? { risk: RISK_SCHEMA } : {}),
+                },
           required: ["explanation"],
         },
       },
@@ -398,7 +400,7 @@ export async function explainDish(
     25000, // explain maxDuration is 30s
   );
 
-  const out = toExplained(result, appMode);
+  const out = toExplained(result, appMode, hasRestrictions(restrictions));
   if (!out) throw new UpstreamError("説明を生成できませんでした");
   return out;
 }
@@ -412,7 +414,7 @@ export async function explainDish(
 export async function explainDishesBatch(
   entries: { name: string; original_text?: string }[],
   appMode: AppMode = "menu",
-  avoid?: string,
+  restrictions?: Restrictions,
 ): Promise<(Explained | null)[]> {
   if (entries.length === 0) return [];
   const indexed = entries.map((e, index) => ({
@@ -431,7 +433,7 @@ export async function explainDishesBatch(
       : "以下はメニュー項目のリストです(index付き、original_textはメニュー上の原文)。" +
         "現地の言葉が読めない旅行者が注文するか判断できるように、それぞれについて主な食材、" +
         "調理法、味の特徴(辛さ・甘さなど)、量や提供形態が伝わる2〜3文の日本語の説明を返してください。" +
-        avoidClause(avoid, true) +
+        restrictionsClause(restrictions, true) +
         "\n\n" +
         JSON.stringify(indexed);
 
@@ -452,6 +454,7 @@ export async function explainDishesBatch(
                   index: { type: "integer" },
                   explanation: { type: "string" },
                   warning: { type: "string" },
+                  ...(hasRestrictions(restrictions) ? { risk: RISK_SCHEMA } : {}),
                   reference_titles: { type: "array", items: { type: "string" } },
                 },
                 required: ["index", "explanation"],
@@ -470,7 +473,7 @@ export async function explainDishesBatch(
   for (const raw of Array.isArray(result.items) ? result.items : []) {
     const i = raw?.index;
     if (!Number.isInteger(i) || i < 0 || i >= entries.length) continue;
-    out[i] = toExplained(raw, appMode);
+    out[i] = toExplained(raw, appMode, hasRestrictions(restrictions));
   }
   return out;
 }

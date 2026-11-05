@@ -10,6 +10,7 @@ import {
   MIN_IMAGE_DIMENSION,
 } from "./limits.js";
 import { cleanText } from "./sanitize.js";
+import { parseRestrictions } from "./restrictions.js";
 import type { AppMode, RecognitionMode } from "../../src/lib/types";
 
 const bad = (message: string, status = 400) => new HttpError(message, status);
@@ -145,7 +146,7 @@ export function validateExplainBody(body: unknown) {
   return {
     ...entry(b),
     appMode: parseAppMode(b.appMode),
-    avoid: optionalHint(b.avoid, "avoid"),
+    restrictions: parseRestrictions(b.restrictions, optionalHint(b.avoid, "avoid")),
   };
 }
 
@@ -160,6 +161,6 @@ export function validateBatchBody(body: unknown) {
   return {
     items: b.items.map(entry),
     appMode: parseAppMode(b.appMode),
-    avoid: optionalHint(b.avoid, "avoid"),
+    restrictions: parseRestrictions(b.restrictions, optionalHint(b.avoid, "avoid")),
   };
 }

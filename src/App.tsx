@@ -15,7 +15,9 @@ import { AuthButton } from "./components/AuthButton";
 import { AppModeSwitch } from "./components/AppModeSwitch";
 import { ModeToggle } from "./components/ModeToggle";
 import { ContextHintInput } from "./components/ContextHintInput";
-import { AvoidIngredientsInput } from "./components/AvoidIngredientsInput";
+import { DietProfilePanel } from "./components/DietProfilePanel";
+import { useDietProfiles } from "./hooks/useDietProfiles";
+import { toExplainRestrictions } from "./lib/diet";
 import { exportItemsText } from "./lib/exportText";
 import { PointOrderModal } from "./components/PointOrderModal";
 import { CameraView } from "./components/CameraView";
@@ -28,7 +30,6 @@ type Tab = "camera" | "saved";
 
 const APP_MODE_KEY = "app-mode";
 const CONTEXT_HINT_KEY = "context-hint";
-const AVOID_KEY = "avoid-ingredients";
 
 function loadAppMode(): AppMode {
   const raw = localStorage.getItem(APP_MODE_KEY);
@@ -42,9 +43,9 @@ function App() {
   const [contextHint, setContextHint] = useState<string>(
     () => localStorage.getItem(CONTEXT_HINT_KEY) ?? "",
   );
-  const [avoidIngredients, setAvoidIngredients] = useState<string>(
-    () => localStorage.getItem(AVOID_KEY) ?? "",
-  );
+  const diet = useDietProfiles();
+  const restrictions = toExplainRestrictions(diet.active);
+  const profileAllergens = diet.active?.allergies ?? [];
   const [modes, setModes] = useState<RecognitionMode[]>(["text"]);
   const [frozenImage, setFrozenImage] = useState<string | null>(null);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
@@ -97,10 +98,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem(CONTEXT_HINT_KEY, contextHint);
   }, [contextHint]);
-
-  useEffect(() => {
-    localStorage.setItem(AVOID_KEY, avoidIngredients);
-  }, [avoidIngredients]);
 
   // Write explanations/warnings fetched after the scan back into its history
   // entry — otherwise restoring from history loses them and re-bills the API.
@@ -177,7 +174,7 @@ function App() {
     // Ignore a second tap while this item's request is already in flight.
     if (!item || item.explanation || loadingIndex === index) return;
     setLoadingIndex(index);
-    const result = await explain(item, appMode, avoidIngredients);
+    const result = await explain(item, appMode, restrictions);
     if (result) {
       setItems((prev) =>
         prev.map((it, i) =>
@@ -189,6 +186,7 @@ function App() {
                 ...it,
                 explanation: result.explanation,
                 warning: result.warning,
+                risk: result.risk,
                 references: result.references,
               }
             : it,
@@ -219,7 +217,7 @@ function App() {
         const results = await explainBatch(
           chunk.map((c) => c.item),
           appMode,
-          avoidIngredients,
+          restrictions,
         );
         setItems((prev) =>
           prev.map((it, i) => {
@@ -232,6 +230,7 @@ function App() {
               ...it,
               explanation: result.explanation,
               warning: result.warning,
+              risk: result.risk,
               references: result.references,
             };
           }),
@@ -296,7 +295,11 @@ function App() {
         </div>
       </header>
       {showPhrases && (
-        <PointOrderModal name="" onClose={() => setShowPhrases(false)} />
+        <PointOrderModal
+          name=""
+          profileAllergens={profileAllergens}
+          onClose={() => setShowPhrases(false)}
+        />
       )}
 
       {!online && (
@@ -351,10 +354,14 @@ function App() {
                 disabled={loading}
               />
               {appMode === "menu" && (
-                <AvoidIngredientsInput
-                  value={avoidIngredients}
-                  onChange={setAvoidIngredients}
+                <DietProfilePanel
+                  state={diet.state}
+                  active={diet.active}
                   disabled={loading}
+                  onSetActive={diet.setActive}
+                  onAdd={diet.addProfile}
+                  onUpdate={diet.updateProfile}
+                  onRemove={diet.removeProfile}
                 />
               )}
             </>
@@ -378,6 +385,7 @@ function App() {
             onExportText={handleExportText}
             onExplainAll={handleExplainAll}
             explainingAll={explainingAll}
+            profileAllergens={profileAllergens}
           />
         </>
       ) : (

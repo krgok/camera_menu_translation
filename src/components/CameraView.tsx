@@ -5,6 +5,7 @@ import { OverlayLayer } from "./OverlayLayer";
 import { ItemList } from "./ItemList";
 import { HistoryPanel } from "./HistoryPanel";
 import type { MenuItem } from "../lib/types";
+import type { IngredientKey } from "../lib/phrases";
 import type { HistoryEntry } from "../lib/history";
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
   onExportText: () => void;
   onExplainAll: () => void;
   explainingAll: boolean;
+  profileAllergens?: IngredientKey[];
 }
 
 export function CameraView({
@@ -47,6 +49,7 @@ export function CameraView({
   onExportText,
   onExplainAll,
   explainingAll,
+  profileAllergens,
 }: Props) {
   const { videoRef, ready, error: cameraError, start, stop, captureFrame } =
     useCamera();
@@ -251,6 +254,7 @@ export function CameraView({
           explainingIndex={explainingIndex}
           expandAll={expandAll}
           explainingAll={explainingAll}
+          profileAllergens={profileAllergens}
         />
       )}
     </div>
