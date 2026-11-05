@@ -37,10 +37,16 @@ APIキー(Google Vision/Gemini)はサーバー側(Vercel環境変数)のみに�
 api/
   analyze.ts         POST /api/analyze — 認証チェック→Vision/Gemini並列実行→items+warningsを返す
   explain.ts         POST /api/explain — 単一項目の説明文を遅延取得
-  _lib/
-    auth.ts          Supabaseアクセストークン検証(requireUser)
+  explain-batch.ts   POST /api/explain-batch — 最大15件の説明を1回のGemini呼び出しで取得
+  rates.ts           GET /api/rates — 為替レート(open.er-api.com)の検証つきプロキシ(認証なし・CDNキャッシュ)
+  _lib/               (`_` で始まるフォルダは Vercel の関数にならない。テストもここに置く)
+    auth.ts          Supabaseアクセストークン検証(requireUser)。匿名ユーザー拒否・ALLOWED_EMAILS(メール確認済みのみ)
+    validate.ts / limits.ts   入力検証と各種上限(画像はJPEGのみ・デコード前に長さ制限・寸法16〜2048px)
+    sanitize.ts      AI出力の検証(HTML/URL/制御文字の除去、文字数、box・言語・通貨・価格の形式)
+    quota.ts         ユーザー別・全体の1日の回数制限(Supabase RPC。未準備ならメモリ代替)
+    errors.ts        クライアントに返してよいエラーと、ログだけに出すエラーの区別
     vision.ts        Cloud Vision TEXT_DETECTION呼び出し、座標を0-1000に正規化
-    gemini.ts        groupMenuItems(文字グループ化+翻訳+IPA) / identifyDishes(画像認識) / explainDish(説明生成)
+    gemini.ts        groupMenuItems(文字グループ化+翻訳+IPA) / identifyDishes(画像認識) / explainDish / explainDishesBatch。maxOutputTokens・systemInstruction(プロンプトインジェクション対策)つき
     fetchWithTimeout.ts  AbortController付きfetch(各呼び出しにタイムアウトを設定しハング防止)
 
 src/
@@ -61,12 +67,18 @@ src/
     image.ts      写真リサイズ、保存用サムネイル切り出し
     history.ts    localStorageへのスキャン履歴保存(直近5件)
     supabase.ts   Supabaseクライアント初期化、SavedItem型
+    api.ts        /api 呼び出し(トークン付与・タイムアウト・日本語のエラー文言)
+    safeUrl.ts    参考リンク(httpsのWikipediaのみ)・サムネイル(JPEG data URLのみ)の検証
+    cameraError.ts  カメラ起動失敗の案内文
 
 supabase/
   schema.sql                新規構築時に実行するDDL一式
   migrations/
     001_add_thumbnail.sql       thumbnail_url列追加(実行済み)
     002_add_pronunciation.sql   pronunciation列追加(実行済み)
+    003_add_mode_references.sql mode / reference_links列追加(実行済み)
+    004_api_usage_quota.sql     利用回数制限のテーブル・関数(menu_camera_*)。実行+quota_secret登録が必要(手順はファイル冒頭)
+    005_saved_items_hardening.sql  saved_itemsのサイズ上限・件数上限・権限整理(任意)
 ```
 
 ## 環境変数(値は書きません。VercelとSupabaseダッシュボードで確認)
@@ -81,13 +93,16 @@ supabase/
 | `SUPABASE_ANON_KEY` | サーバー側トークン検証用 | 非公開 |
 | `GOOGLE_VISION_API_KEY` | Cloud Vision呼び出し | 非公開(絶対にクライアントに出さない) |
 | `GEMINI_API_KEY` | Gemini呼び出し | 非公開(同上) |
-| `ALLOWED_EMAILS` | 有料APIを使えるメールアドレス(カンマ区切り)。空なら全ログインユーザー可。不許可は403 | 非公開 |
+| `ALLOWED_EMAILS` | 有料APIを使えるメールアドレス(カンマ区切り)。空なら全ログインユーザー可。不許可は403(メール確認済みのみ) | 非公開 |
+| `QUOTA_SECRET` | 1日の回数制限のRPCを呼ぶための共有秘密(`menu_camera_quota_config` の `quota_secret` と同じ値)。未設定ならメモリ代替のみ | 非公開 |
+| `DAILY_LIMIT_ANALYZE` / `_EXPLAIN` / `_EXPLAIN_BATCH`、`GLOBAL_DAILY_LIMIT_*` | 1日の上限(1人あたり/サービス全体)。既定 40/150/30 と 400/1500/200 | 非公開(任意) |
 
 ## Supabase設定の注意点
 
 - Google OAuthのクライアントID/シークレットは**Supabase Auth Providerの設定を変更しない**(既存プロジェクトの他アプリと共有のため)
 - 新しいドメインを追加する場合は **Supabase → Authentication → URL Configuration → Redirect URLs** に追加する(Google Cloud Console側の変更は不要)
-- `saved_items` テーブルはRLS有効。本人の行のみselect/insert/delete可能
+- `saved_items` テーブルはRLS有効。本人の行のみselect/insert/delete可能(updateポリシーなし)
+- このプロジェクトは他アプリと共有。このアプリが追加するテーブル・関数は `saved_items` と `menu_camera_*` のみ。他アプリのテーブルには触れない
 
 ## 実装済み機能
 
@@ -135,6 +150,15 @@ supabase/
 7. **`navigator.share` はタップ直後にしか呼べない**(awaitを挟むとユーザー操作の有効期限が切れる)。非同期生成するZIPは共有シートではなく通常ダウンロード
 8. **`useCamera.start()` で前のストリームを止めずに上書きすると再スキャンごとにカメラが増殖する**。世代カウンタで遅れて届いたストリームも解放
 
+## セキュリティ・費用対策(2026-11 点検で追加。詳細は `docs/audit-2026-11.md`)
+
+- 有料API(Vision/Gemini)を呼ぶ前に: ログイン → 入力検証 → 1日の回数(ユーザー別+全体) の順に弾く
+- Geminiは呼び出しごとに `maxOutputTokens`、料理名・OCR文字数なども上限あり。AIの出力は `sanitize.ts` で再検証してから返す
+- Vision/Geminiのエラー本文はクライアントに返さない(サーバーログのみ)
+- セキュリティヘッダーは `vercel.json`(CSPは Report-Only。実機で違反がないことを確認してから `Content-Security-Policy` に変更する)
+- **Google Cloud側(アプリの外)でAPIキーの制限・日次クォータ・予算アラートを設定すること**(最後の防壁)
+- テスト: `npm test`(vitest。外部通信なし)、CI: `.github/workflows/ci.yml`(lint・test・build。デプロイなし)
+
 ## 未実装・提案止まりの項目
 
 検討済みだが意図的に見送り:
@@ -145,10 +169,10 @@ supabase/
 ## ローカル開発
 
 ```bash
-npm install
+npm ci
 cp .env.example .env   # 値を埋める
 npm run dev             # http://localhost:5173 (フロントのみ、/apiは動かない)
 vercel dev               # /api込みで動作確認する場合
 ```
 
-型チェック: `npx tsc -b` / ビルド: `npm run build` / Lint: `npx oxlint`
+型チェック: `npx tsc -b` / ビルド: `npm run build` / Lint: `npm run lint` / テスト: `npm test`
