@@ -17,6 +17,7 @@ import { ModeToggle } from "./components/ModeToggle";
 import { ContextHintInput } from "./components/ContextHintInput";
 import { AvoidIngredientsInput } from "./components/AvoidIngredientsInput";
 import { exportItemsText } from "./lib/exportText";
+import { PointOrderModal } from "./components/PointOrderModal";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
 import { useOnline } from "./hooks/useOnline";
@@ -67,6 +68,7 @@ function App() {
   // (explain / save errors, quota, expired login).
   const [notice, setNotice] = useState<string | null>(null);
   const showNotice = useCallback((message: string) => setNotice(message), []);
+  const [showPhrases, setShowPhrases] = useState(false);
   const online = useOnline();
   const savingRef = useRef(new Set<string>());
   const { explain, explainBatch, loadingIndex, setLoadingIndex } =
@@ -286,8 +288,16 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>{appMode === "museum" ? "博物館説明カメラ" : "メニュー説明カメラ"}</h1>
-        <AuthButton user={user} />
+        <div className="app-header-actions">
+          {appMode === "menu" && (
+            <button onClick={() => setShowPhrases(true)}>💬 フレーズ集</button>
+          )}
+          <AuthButton user={user} />
+        </div>
       </header>
+      {showPhrases && (
+        <PointOrderModal name="" onClose={() => setShowPhrases(false)} />
+      )}
 
       {!online && (
         <p className="app-notice app-notice-offline" role="status">
