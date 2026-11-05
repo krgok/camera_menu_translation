@@ -32,5 +32,7 @@ export interface SavedItem {
   trip?: string | null;
   rating?: number | null;
   note?: string | null;
+  // Migration 007. Absent until that migration is run.
+  romanization?: string | null;
   created_at: string;
 }

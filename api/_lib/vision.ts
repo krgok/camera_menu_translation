@@ -17,6 +17,7 @@ export async function detectText(
   base64Image: string,
   imageWidth: number,
   imageHeight: number,
+  languageHint?: string,
 ): Promise<OcrTextBlock[]> {
   const apiKey = process.env.GOOGLE_VISION_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_VISION_API_KEY が未設定です");
@@ -32,6 +33,8 @@ export async function detectText(
           {
             image: { content: base64Image },
             features: [{ type: "TEXT_DETECTION" }],
+            // Pinning the menu language helps with mixed-script menus.
+            ...(languageHint ? { imageContext: { languageHints: [languageHint] } } : {}),
           },
         ],
       }),

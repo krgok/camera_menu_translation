@@ -33,6 +33,7 @@ export function useAnalyze() {
       modes: RecognitionMode[],
       appMode: AppMode,
       contextHint?: string,
+      languageHint?: string,
     ) => {
       if (inflightRef.current) return [];
       inflightRef.current = true;
@@ -45,6 +46,7 @@ export function useAnalyze() {
           modes,
           appMode,
           contextHint,
+          languageHint: languageHint || undefined,
         });
         setItems(data.items ?? []);
         setWarnings(data.warnings ?? []);

@@ -75,13 +75,13 @@ describe("Gemini への risk の要求と検証", () => {
   afterEach(() => vi.unstubAllGlobals());
   const body = () => JSON.parse(fetchMock.mock.calls[0][1].body);
 
-  it("制限ありなら risk をスキーマに含め、結果に返す(不正な値は捨てる)", async () => {
+  it("制限ありなら risk をスキーマに含め、結果に返す(不正な値は unknown にする)", async () => {
     fetchMock.mockResolvedValue(reply({ explanation: "e", warning: "エビペースト", risk: "high" }));
     const r = await explainDish("a", undefined, "menu", parseRestrictions({ allergies: ["shrimp"] }));
     expect(r.risk).toBe("high");
     expect(body().generationConfig.responseSchema.properties.risk.enum).toContain("unknown");
     fetchMock.mockResolvedValue(reply({ explanation: "e", risk: "DROP TABLE" }));
-    expect((await explainDish("a", undefined, "menu", parseRestrictions({ allergies: ["shrimp"] }))).risk).toBeUndefined();
+    expect((await explainDish("a", undefined, "menu", parseRestrictions({ allergies: ["shrimp"] }))).risk).toBe("unknown");
   });
   it("制限なしなら risk を要求も返却もしない", async () => {
     fetchMock.mockResolvedValue(reply({ explanation: "e", risk: "low" }));

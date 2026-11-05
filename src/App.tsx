@@ -27,8 +27,11 @@ import { OrderListPanel } from "./components/OrderListPanel";
 import { useOrderList } from "./hooks/useOrderList";
 import { InstallHint } from "./components/InstallHint";
 import { clearSavedCache } from "./lib/savedCache";
-import { insertSavedItem } from "./lib/saveItem";
+import { droppedNotice, insertSavedItem } from "./lib/saveItem";
+import { explanationForSave } from "./lib/exportText";
 import { useTrip } from "./hooks/useTrip";
+import { LanguageHintSelect } from "./components/LanguageHintSelect";
+import { loadLanguageHint, saveLanguageHint, type LanguageHint } from "./lib/languages";
 import { TripInput } from "./components/TripInput";
 import { ScrollTopButton } from "./components/ScrollTopButton";
 import "./App.css";
@@ -50,6 +53,7 @@ function App() {
   const [contextHint, setContextHint] = useState<string>(
     () => localStorage.getItem(CONTEXT_HINT_KEY) ?? "",
   );
+  const [languageHint, setLanguageHint] = useState<LanguageHint | "">(loadLanguageHint);
   const order = useOrderList();
   const [showOrder, setShowOrder] = useState(false);
   const tripState = useTrip();
@@ -111,6 +115,10 @@ function App() {
     localStorage.setItem(CONTEXT_HINT_KEY, contextHint);
   }, [contextHint]);
 
+  useEffect(() => {
+    saveLanguageHint(languageHint);
+  }, [languageHint]);
+
   // Write explanations/warnings fetched after the scan back into its history
   // entry — otherwise restoring from history loses them and re-bills the API.
   useEffect(() => {
@@ -134,7 +142,7 @@ function App() {
   // result becomes a new history entry that later explanations write into.
   const runAnalysis = async (image: string) => {
     setCurrentScanTs(null);
-    const result = await analyze(image, modes, appMode, contextHint);
+    const result = await analyze(image, modes, appMode, contextHint, languageHint);
     if (result.length > 0) {
       const entry: HistoryEntry = {
         image,
@@ -199,6 +207,8 @@ function App() {
                 explanation: result.explanation,
                 warning: result.warning,
                 risk: result.risk,
+                similar_ja: result.similar_ja,
+                spice: result.spice,
                 references: result.references,
               }
             : it,
@@ -243,6 +253,8 @@ function App() {
               explanation: result.explanation,
               warning: result.warning,
               risk: result.risk,
+              similar_ja: result.similar_ja,
+              spice: result.spice,
               references: result.references,
             };
           }),
@@ -283,23 +295,22 @@ function App() {
       dish_name: item.name,
       original_text: item.original_text ?? null,
       pronunciation: item.pronunciation ?? null,
-      explanation: item.explanation ?? "",
+      // "日本でいうと / 辛さ" have no column of their own: keep them in the text.
+      explanation: explanationForSave(item),
       source_language: item.source_language ?? null,
       thumbnail_url,
       mode: appMode,
       reference_links: item.references ?? null,
       ...(trip ? { trip } : {}),
+      // Only send when present: a null would still make PostgREST fail if 007 is not run.
+      ...(item.romanization ? { romanization: item.romanization } : {}),
     });
     if (!result.ok) {
       showNotice(`保存に失敗しました: ${result.message}`);
       return;
     }
-    if (trip && !result.droppedTrip) tripState.remember(trip);
-    if (result.droppedTrip) {
-      showNotice(
-        "保存しましたが、旅行名は保存されませんでした(データベースの更新 006 が未実行のため)",
-      );
-    }
+    if (trip && !result.dropped.includes("trip")) tripState.remember(trip);
+    if (result.dropped.length > 0) showNotice(droppedNotice(result.dropped));
     setSavedNames((prev) => new Set(prev).add(item.name));
   };
 
@@ -368,19 +379,17 @@ function App() {
           <ModeToggle modes={modes} onChange={setModes} appMode={appMode} />
           {!frozenImage && (
             <>
+              <LanguageHintSelect
+                value={languageHint}
+                onChange={setLanguageHint}
+                disabled={loading}
+              />
               <ContextHintInput
                 value={contextHint}
                 onChange={setContextHint}
                 appMode={appMode}
                 disabled={loading}
               />
-              {user && (
-                <TripInput
-                  value={tripState.trip}
-                  recent={tripState.recent}
-                  onChange={tripState.setTrip}
-                />
-              )}
               {appMode === "menu" && (
                 <DietProfilePanel
                   state={diet.state}
@@ -393,6 +402,13 @@ function App() {
                 />
               )}
             </>
+          )}
+          {user && (
+            <TripInput
+              value={tripState.trip}
+              recent={tripState.recent}
+              onChange={tripState.setTrip}
+            />
           )}
           <CameraView
             frozenImage={frozenImage}

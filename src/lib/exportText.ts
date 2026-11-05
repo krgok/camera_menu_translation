@@ -2,6 +2,14 @@ import type { AppMode, MenuItem } from "./types";
 import { formatPrice, getCachedRates } from "./currency";
 import { shareOrDownload } from "./download";
 
+/** Explanation plus the extra menu info that has no DB column of its own. */
+export function explanationForSave(item: MenuItem): string {
+  const parts = [item.explanation ?? ""];
+  if (item.similar_ja) parts.push(`日本でいうと: ${item.similar_ja}`);
+  if (typeof item.spice === "number") parts.push(`辛さ: ${item.spice}/4`);
+  return parts.filter(Boolean).join("\n");
+}
+
 function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
@@ -27,12 +35,15 @@ export function exportItemsText(items: MenuItem[], appMode: AppMode): void {
   items.forEach((item, i) => {
     lines.push(`${i + 1}. ${item.name}`);
     if (item.original_text) lines.push(`   原文: ${item.original_text}`);
+    if (item.romanization) lines.push(`   読み(ローマ字): ${item.romanization}`);
     if (item.pronunciation) lines.push(`   発音(IPA): [${item.pronunciation}]`);
     if (item.source_language) lines.push(`   言語: ${item.source_language}`);
     if (typeof item.price === "number") {
       lines.push(`   価格: ${formatPrice(item.price, item.currency, rates)}`);
     }
     lines.push(`   説明: ${item.explanation ?? "(未取得)"}`);
+    if (item.similar_ja) lines.push(`   日本でいうと: ${item.similar_ja}`);
+    if (typeof item.spice === "number") lines.push(`   辛さ: ${item.spice}/4`);
     if (item.warning) lines.push(`   ⚠ 注意: ${item.warning}`);
     lines.push("");
   });

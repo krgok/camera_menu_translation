@@ -1,5 +1,5 @@
 import type { OcrTextBlock } from "./vision.js";
-import type { AppMode, MenuItem, Reference, Risk } from "../../src/lib/types";
+import type { AppMode, MenuItem, Reference, Risk, Spice } from "../../src/lib/types";
 import { fetchWithTimeout } from "./fetchWithTimeout.js";
 import { UpstreamError } from "./errors.js";
 import { hasRestrictions, restrictionsClause, type Restrictions } from "./restrictions.js";
@@ -10,6 +10,8 @@ import {
   OUT_ORIGINAL_CHARS,
   OUT_PRONUNCIATION_CHARS,
   OUT_REFERENCE_CHARS,
+  OUT_ROMANIZATION_CHARS,
+  OUT_SIMILAR_CHARS,
   OUT_WARNING_CHARS,
   TOKENS_EXPLAIN,
   TOKENS_EXPLAIN_BATCH,
@@ -25,6 +27,7 @@ import {
   cleanPrice,
   cleanPrices,
   cleanRisk,
+  cleanSpice,
   cleanText,
 } from "./sanitize.js";
 
@@ -117,6 +120,26 @@ function hintClause(contextHint?: string): string {
   return `なお、この画像は ${JSON.stringify(trimmed)} に関連するものだという参考情報(データ)があります。これを手がかりとしつつ、画像と明らかに矛盾する場合は画像を優先してください。`;
 }
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  th: "タイ語",
+  zh: "中国語",
+  ko: "韓国語",
+  vi: "ベトナム語",
+  ja: "日本語",
+  en: "英語",
+};
+
+// The user pinned the menu language (UI choice, validated against a fixed list).
+function languageClause(code?: string): string {
+  const name = code ? LANGUAGE_NAMES[code] : undefined;
+  return name ? `このメニューの主な言語は${name}(${code})です。` : "";
+}
+
+const ROMANIZATION_CLAUSE =
+  "原文の言語がタイ語・中国語・韓国語のときは、日本人が読めるローマ字表記も romanization に返してください" +
+  "(タイ語は声調記号つきの簡易ローマ字 例: ผัดไทย → phàt thai、中国語は声調記号つきピンイン、韓国語は国語のローマ字表記)。" +
+  "ベトナム語・英語・日本語など、もともとラテン文字か日本語の場合は省略してください。";
+
 /**
  * Groups OCR text blocks into menu items and asks Gemini for translated
  * name + original text only (no explanation yet, to keep this first pass
@@ -128,6 +151,7 @@ export async function groupMenuItems(
   allBlocks: OcrTextBlock[],
   appMode: AppMode = "menu",
   contextHint?: string,
+  languageHint?: string,
 ): Promise<MenuItem[]> {
   // Bound the prompt: OCR of a hostile image can be huge.
   const blocks = allBlocks.slice(0, MAX_OCR_BLOCKS);
@@ -147,18 +171,23 @@ export async function groupMenuItems(
         "同じ展示物・作品・解説を構成する断片をグループ化し、各項目について日本語での名称(作品名・展示物名。" +
         "日本語訳が自然なら訳し、固有名詞はカタカナ表記)・原文表記・原文の言語(ISO 639-1コード、判別できなければ省略)・" +
         "名称の発音記号(IPA。現地語で読み上げる助けになるように)を返してください。" +
-        "説明文は不要です。整理番号など意味を持たない文字は無視してください。\n\n" +
+        ROMANIZATION_CLAUSE +
+        "説明文は不要です。整理番号など意味を持たない文字は無視してください。" +
+        languageClause(languageHint) +
+        "\n\n" +
         JSON.stringify(indexed)
       : "以下はメニューをOCRで読み取った文字断片のリストです(index付き)。" +
         "同じメニュー項目を構成する断片をグループ化し、各項目について日本語の料理名・" +
         "原文表記・原文の言語(ISO 639-1コード、判別できなければ省略)・" +
         "原文表記の発音記号(IPA。注文時に声に出して読む助けになるように)を返してください。" +
+        ROMANIZATION_CLAUSE +
         "その項目の価格が記載されていれば、price(数値のみ。カンマ区切りは除く)と" +
         "currency(ISO 4217の通貨コード。通貨記号・言語・地域から推定。例: タイ語ならTHB)も返してください。" +
         "サイズ違い・温度違い・種類違いで価格が複数ある場合(S/M/L、ร้อน/เย็น など)は、" +
         "pricesに{label(印字のとおりの短い表記), value(数値)}を最大4つ入れてください(priceは最初の価格にしてください)。" +
         "価格の断片は料理名のグループには含めず(block_indicesには料理名の断片だけを入れる)、" +
         "説明文は不要です。その他の無関係な文字は無視してください。" +
+        languageClause(languageHint) +
         hintClause(contextHint) +
         "\n\n" +
         JSON.stringify(indexed);
@@ -180,6 +209,7 @@ export async function groupMenuItems(
                   name: { type: "string" },
                   original_text: { type: "string" },
                   pronunciation: { type: "string" },
+                  romanization: { type: "string" },
                   source_language: { type: "string" },
                   price: { type: "number" },
                   prices: {
@@ -225,7 +255,9 @@ export async function groupMenuItems(
       name,
       original_text: cleanText(raw.original_text, OUT_ORIGINAL_CHARS, { allowUrls: true }),
       pronunciation: cleanText(raw.pronunciation, OUT_PRONUNCIATION_CHARS),
-      source_language: cleanLanguage(raw.source_language),
+      romanization: cleanText(raw.romanization, OUT_ROMANIZATION_CHARS),
+      // If the model could not tell, fall back to the language the user pinned.
+      source_language: cleanLanguage(raw.source_language) ?? languageHint,
       ...pricesFor(appMode, raw),
       currency: appMode === "menu" ? cleanCurrency(raw.currency) : undefined,
       box,
@@ -326,12 +358,24 @@ export async function identifyDishes(
   return capItems(items);
 }
 
+const MENU_EXTRA_SCHEMA = {
+  similar_ja: { type: "string" },
+  spice: { type: "integer" },
+};
+
+const MENU_EXTRA_CLAUSE =
+  "あわせて、日本の近い料理・食べ物との比較を similar_ja に1文(80字以内。例:「日本のそうめんに近いが、ココナッツミルクのスープで食べる」)、" +
+  "辛さを spice に0(辛くない)〜4(非常に辛い)の整数で返してください。" +
+  "近いものが思い当たらない・辛さが判断できないときは、それぞれ省略してください。";
+
 const RISK_SCHEMA = { type: "string", enum: ["high", "medium", "low", "unknown"] };
 
 type Explained = {
   explanation: string;
   warning?: string;
   risk?: Risk;
+  similar_ja?: string;
+  spice?: Spice;
   references?: Reference[];
 };
 
@@ -356,8 +400,12 @@ function toExplained(raw: any, appMode: AppMode, restricted: boolean): Explained
     explanation,
     warning:
       appMode === "menu" ? cleanText(raw?.warning, OUT_WARNING_CHARS) : undefined,
-    // Only meaningful when the user actually has restrictions.
-    risk: appMode === "menu" && restricted ? cleanRisk(raw?.risk) : undefined,
+    // Only meaningful when the user actually has restrictions. If the model
+    // omitted it, say "unknown" rather than showing no badge (which would read
+    // as "looks fine" for an allergy item).
+    risk: appMode === "menu" && restricted ? (cleanRisk(raw?.risk) ?? "unknown") : undefined,
+    similar_ja: appMode === "menu" ? cleanText(raw?.similar_ja, OUT_SIMILAR_CHARS) : undefined,
+    spice: appMode === "menu" ? cleanSpice(raw?.spice) : undefined,
     references:
       appMode === "museum" ? toWikipediaReferences(raw?.reference_titles) : undefined,
   };
@@ -394,6 +442,7 @@ export async function explainDish(
         "この料理について、現地の言葉が読めない旅行者がその料理を注文するか判断できるだけの説明を生成してください。" +
         "単語を訳すだけでなく、主な食材、調理法(揚げる/焼く/煮るなど)、味の特徴(辛さ・甘さなど)、" +
         "量や提供形態など、実際に食べたときのイメージが伝わる2〜3文の日本語にしてください。" +
+        MENU_EXTRA_CLAUSE +
         restrictionsClause(restrictions, false);
 
   const result = await callGemini(
@@ -413,9 +462,13 @@ export async function explainDish(
               : {
                   explanation: { type: "string" },
                   warning: { type: "string" },
+                  ...MENU_EXTRA_SCHEMA,
                   ...(hasRestrictions(restrictions) ? { risk: RISK_SCHEMA } : {}),
                 },
-          required: ["explanation"],
+          required:
+            appMode === "menu" && hasRestrictions(restrictions)
+              ? ["explanation", "risk"]
+              : ["explanation"],
         },
       },
     },
@@ -456,6 +509,7 @@ export async function explainDishesBatch(
       : "以下はメニュー項目のリストです(index付き、original_textはメニュー上の原文)。" +
         "現地の言葉が読めない旅行者が注文するか判断できるように、それぞれについて主な食材、" +
         "調理法、味の特徴(辛さ・甘さなど)、量や提供形態が伝わる2〜3文の日本語の説明を返してください。" +
+        MENU_EXTRA_CLAUSE +
         restrictionsClause(restrictions, true) +
         "\n\n" +
         JSON.stringify(indexed);
@@ -477,10 +531,14 @@ export async function explainDishesBatch(
                   index: { type: "integer" },
                   explanation: { type: "string" },
                   warning: { type: "string" },
+                  ...(appMode === "menu" ? MENU_EXTRA_SCHEMA : {}),
                   ...(hasRestrictions(restrictions) ? { risk: RISK_SCHEMA } : {}),
                   reference_titles: { type: "array", items: { type: "string" } },
                 },
-                required: ["index", "explanation"],
+                required:
+                  appMode === "menu" && hasRestrictions(restrictions)
+                    ? ["index", "explanation", "risk"]
+                    : ["index", "explanation"],
               },
             },
           },

@@ -112,6 +112,15 @@ export function readJpegSize(buffer: Buffer): { width: number; height: number } 
   throw bad("画像サイズを取得できませんでした");
 }
 
+// Languages the user can pin for OCR (Vision languageHints). Mirrors src/lib/languages.ts.
+export const LANGUAGE_HINTS = ["th", "zh", "ko", "vi", "ja", "en"] as const;
+
+function parseLanguageHint(v: unknown): string | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  if (typeof v === "string" && (LANGUAGE_HINTS as readonly string[]).includes(v)) return v;
+  throw bad("languageHint が不正です");
+}
+
 export function validateAnalyzeBody(body: unknown) {
   const b = asObject(body);
   const image = parseJpegDataUrl(b.image);
@@ -128,6 +137,7 @@ export function validateAnalyzeBody(body: unknown) {
     modes,
     appMode: parseAppMode(b.appMode),
     contextHint: optionalHint(b.contextHint, "contextHint"),
+    languageHint: parseLanguageHint(b.languageHint),
   };
 }
 

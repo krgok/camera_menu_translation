@@ -20,6 +20,8 @@ export interface Reference {
 // How likely a dish conflicts with the user's dietary profile (menu mode only,
 // returned together with the explanation). "unknown" is deliberate: when the
 // model cannot tell, it must not guess "low".
+export type Spice = 0 | 1 | 2 | 3 | 4;
+
 export type Risk = "high" | "medium" | "low" | "unknown";
 
 // Dietary restrictions sent with explain requests. Keys are validated on the
@@ -42,11 +44,18 @@ export interface MenuItem {
   // IPA transcription of original_text, so a traveler can attempt to say
   // the dish name aloud when ordering.
   pronunciation?: string;
+  // Easy-to-read romanization for non-Latin scripts (Thai tone marks, pinyin,
+  // Korean RR). An AI estimate, shown next to the IPA.
+  romanization?: string;
   explanation?: string;
   // Set when the dish may contain an ingredient the user asked to avoid
   // (fetched together with `explanation`).
   warning?: string;
   risk?: Risk;
+  // Menu mode, fetched with the explanation: closest Japanese dish/food and
+  // spiciness 0 (not spicy) .. 4 (very spicy).
+  similar_ja?: string;
+  spice?: Spice;
   // Museum mode only: fetched together with `explanation`.
   references?: Reference[];
   source_language?: string;
@@ -73,6 +82,8 @@ export interface AnalyzeRequest {
   // Optional free-text cuisine/region hint (e.g. "タイ料理") that narrows the
   // hypothesis space for image recognition of plated food with no visible text.
   contextHint?: string;
+  // Language printed on the menu (ISO 639-1; see LANGUAGE_HINTS). Omitted = auto.
+  languageHint?: string;
 }
 
 export interface ExplainRequest {
@@ -89,6 +100,8 @@ export interface ExplainResponse {
   explanation: string;
   warning?: string;
   risk?: Risk;
+  similar_ja?: string;
+  spice?: Spice;
   references?: Reference[];
 }
 

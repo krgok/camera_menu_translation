@@ -20,15 +20,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // dimensions) -> daily quota -> only then call paid APIs.
     const { user, token } = await requireUser(req.headers.authorization);
     assertBodySize(req.headers["content-length"]);
-    const { image, modes, appMode, contextHint } = validateAnalyzeBody(req.body);
+    const { image, modes, appMode, contextHint, languageHint } = validateAnalyzeBody(req.body);
     // Count this paid call (per user + global, per day) before it happens.
     await consumeQuota(user.id, token, "analyze");
 
     const tasks: Promise<MenuItem[]>[] = [];
     if (modes.includes("text")) {
       tasks.push(
-        detectText(image.base64, image.width, image.height).then((blocks) =>
-          groupMenuItems(blocks, appMode, contextHint),
+        detectText(image.base64, image.width, image.height, languageHint).then((blocks) =>
+          groupMenuItems(blocks, appMode, contextHint, languageHint),
         ),
       );
     }
