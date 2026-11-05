@@ -5,6 +5,11 @@ import { SpeechRateSwitch } from "./SpeechRateSwitch";
 import { PointOrderModal } from "./PointOrderModal";
 import { safeReferenceUrl, safeThumbnailSrc } from "../lib/safeUrl";
 import { readSavedCache, writeSavedCache } from "../lib/savedCache";
+import { buildSavedMarkdown, filterAndSort, tripsOf, type SavedFilter } from "../lib/saved";
+import { shareOrDownload } from "../lib/download";
+import { isMissingColumn } from "../lib/saveItem";
+import { SavedToolbar } from "./SavedToolbar";
+import { SavedItemEditor } from "./SavedItemEditor";
 
 export function SavedList() {
   const [items, setItems] = useState<SavedItem[]>([]);
@@ -12,6 +17,7 @@ export function SavedList() {
   const [loadError, setLoadError] = useState<string | null>(null);
   // Set when the list shown is the offline copy from the last successful load.
   const [offlineAt, setOfflineAt] = useState<number | null>(null);
+  const [filter, setFilter] = useState<SavedFilter>({ query: "", trip: "", order: "newest" });
   const [pointOrderItem, setPointOrderItem] = useState<SavedItem | null>(null);
   const {
     speechSupported,
@@ -63,6 +69,34 @@ export function SavedList() {
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const updateItem = async (
+    id: string,
+    patch: { trip?: string | null; rating?: number | null; note?: string | null },
+  ) => {
+    const { error } = await supabase.from("saved_items").update(patch).eq("id", id);
+    if (error) {
+      setLoadError(
+        isMissingColumn(error) || error.code === "42501"
+          ? "旅行・評価・メモの機能には、データベースの更新(マイグレーション 006)が必要です。管理者に実行を依頼してください"
+          : `更新に失敗しました: ${error.message}`,
+      );
+      return;
+    }
+    setLoadError(null);
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  };
+
+  const trips = tripsOf(items);
+  const visible = filterAndSort(items, filter);
+
+  const exportVisible = () => {
+    const title = filter.trip && filter.trip !== "__none__" ? filter.trip : "保存した料理";
+    const md = buildSavedMarkdown(visible, title);
+    const blob = new Blob([String.fromCharCode(0xfeff) + md], { type: "text/markdown;charset=utf-8" });
+    const name = `menu-album-${new Date().toISOString().slice(0, 10)}.md`;
+    void shareOrDownload(blob, name, title);
+  };
+
   if (loading) return <p role="status">読み込み中...</p>;
   if (items.length === 0 && loadError) {
     return (
@@ -89,8 +123,17 @@ export function SavedList() {
           {loadError}
         </p>
       )}
+      <SavedToolbar
+        filter={filter}
+        trips={trips}
+        total={items.length}
+        shown={visible.length}
+        onChange={setFilter}
+        onExport={exportVisible}
+      />
+      {visible.length === 0 && <p>条件に合う料理がありません。</p>}
       <ul className="saved-list">
-        {items.map((item) => (
+        {visible.map((item) => (
           <li key={item.id} className="saved-list-item">
             <div className="saved-list-row">
               {safeThumbnailSrc(item.thumbnail_url) && (
@@ -186,6 +229,15 @@ export function SavedList() {
                   )}
                   <button disabled={offlineAt !== null} onClick={() => remove(item.id)}>削除</button>
                 </div>
+                {item.trip && <div className="saved-list-lang">旅行: {item.trip}</div>}
+                {offlineAt === null && (
+                  <SavedItemEditor
+                    key={`${item.id}-${item.note ?? ""}-${item.trip ?? ""}`}
+                    item={item}
+                    trips={trips}
+                    onUpdate={(patch) => updateItem(item.id, patch)}
+                  />
+                )}
               </div>
             </div>
           </li>
