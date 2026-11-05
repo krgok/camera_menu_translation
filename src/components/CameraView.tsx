@@ -53,6 +53,7 @@ export function CameraView({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [expandAll, setExpandAll] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Turn the camera off while the user reads results — it's hidden anyway,
@@ -79,8 +80,15 @@ export function CameraView({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    const image = await resizeImageFile(file);
-    onCapture(image);
+    setFileError(null);
+    try {
+      onCapture(await resizeImageFile(file));
+    } catch {
+      // e.g. HEIC on a browser that can't decode it, or a corrupt file.
+      setFileError(
+        "この写真は読み込めませんでした。別の写真を選ぶか、カメラでスキャンしてください(HEIC形式は一部のブラウザで非対応です)",
+      );
+    }
   };
 
   // onExplain must be called outside the setActiveIndex updater — updaters
@@ -140,15 +148,25 @@ export function CameraView({
           />
         )}
         {loading && (
-          <div className="camera-loading-overlay">
+          <div className="camera-loading-overlay" role="status" aria-live="polite">
             解析中... ({elapsedSeconds}秒)
+            {elapsedSeconds >= 15 && " 通信が遅い可能性があります"}
           </div>
         )}
       </div>
 
-      {cameraError && <p className="camera-error">{cameraError}</p>}
+      {cameraError && !frozenImage && (
+        <p className="camera-error" role="alert">
+          {cameraError}
+        </p>
+      )}
+      {fileError && (
+        <p className="camera-error" role="alert">
+          {fileError}
+        </p>
+      )}
       {error && (
-        <div className="camera-error-box">
+        <div className="camera-error-box" role="alert">
           <p className="camera-error">{error}</p>
           {frozenImage && (
             <button onClick={onRetry} disabled={loading}>

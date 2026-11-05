@@ -17,6 +17,9 @@ export function AvoidIngredientsInput({ value, onChange, disabled }: Props) {
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
       />
+      <span className="context-hint-note">
+        ※ 警告はAIの推定です。重いアレルギーは必ずお店の人に確認してください。
+      </span>
     </label>
   );
 }

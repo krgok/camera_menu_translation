@@ -100,7 +100,10 @@ export function ItemList({
                       </div>
                     )}
                     {item.warning && (
-                      <div className="item-warning">⚠ {item.warning}</div>
+                      <div className="item-warning">
+                        ⚠ {item.warning}
+                        <span className="item-warning-note">(AIの推定です。アレルギーは必ずお店の人に確認を)</span>
+                      </div>
                     )}
                     {item.explanation ? (
                       <div className="item-list-explanation">

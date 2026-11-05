@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { postJson } from "../lib/api";
 import type {
   AppMode,
   ExplainBatchResponse,
@@ -7,7 +7,8 @@ import type {
   MenuItem,
 } from "../lib/types";
 
-export function useExplain() {
+/** `onError` receives a user-facing message when a request fails. */
+export function useExplain(onError?: (message: string) => void) {
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
 
   const explain = useCallback(
@@ -17,32 +18,18 @@ export function useExplain() {
       avoid?: string,
     ): Promise<ExplainResponse | null> => {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
-        if (!token) return null;
-
-        const res = await fetch("/api/explain", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: item.name,
-            original_text: item.original_text,
-            appMode,
-            avoid,
-          }),
+        return await postJson<ExplainResponse>("/api/explain", {
+          name: item.name,
+          original_text: item.original_text,
+          appMode,
+          avoid,
         });
-        if (!res.ok) return null;
-
-        const data: ExplainResponse = await res.json();
-        return data;
-      } catch {
+      } catch (e) {
+        onError?.(e instanceof Error ? e.message : "説明の取得に失敗しました");
         return null;
       }
     },
-    [],
+    [onError],
   );
 
   // Explains up to 15 items in one request. Returns results aligned with
@@ -55,33 +42,18 @@ export function useExplain() {
     ): Promise<(ExplainResponse | null)[]> => {
       const empty = items.map(() => null);
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
-        if (!token) return empty;
-
-        const res = await fetch("/api/explain-batch", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            items: items.map((i) => ({
-              name: i.name,
-              original_text: i.original_text,
-            })),
-            appMode,
-            avoid,
-          }),
+        const data = await postJson<ExplainBatchResponse>("/api/explain-batch", {
+          items: items.map((i) => ({ name: i.name, original_text: i.original_text })),
+          appMode,
+          avoid,
         });
-        if (!res.ok) return empty;
-        const data: ExplainBatchResponse = await res.json();
         return items.map((_, i) => data.results?.[i] ?? null);
-      } catch {
+      } catch (e) {
+        onError?.(e instanceof Error ? e.message : "説明の取得に失敗しました");
         return empty;
       }
     },
-    [],
+    [onError],
   );
 
   return { explain, explainBatch, loadingIndex, setLoadingIndex };

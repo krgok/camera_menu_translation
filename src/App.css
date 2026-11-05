@@ -614,3 +614,44 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   z-index: 10;
 }
+
+/* --- 375px-friendly header, notices (audit 2026-11) --- */
+.app-header {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.app-header button {
+  white-space: nowrap;
+}
+.auth-status span {
+  max-width: 45vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ff8a8a;
+  border-radius: 8px;
+  color: #ffb4b4;
+  font-size: 0.85rem;
+}
+.app-notice-offline {
+  border-color: #e0b84c;
+  color: #e0b84c;
+}
+.app-notice button {
+  min-width: 2rem;
+  min-height: 2rem;
+}
+.context-hint-note,
+.item-warning-note {
+  display: block;
+  font-size: 0.75rem;
+  color: #aaa;
+}
