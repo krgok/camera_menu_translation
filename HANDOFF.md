@@ -79,6 +79,8 @@ supabase/
     003_add_mode_references.sql mode / reference_links列追加(実行済み)
     004_api_usage_quota.sql     利用回数制限のテーブル・関数(menu_camera_*)。実行+quota_secret登録が必要(手順はファイル冒頭)
     005_saved_items_hardening.sql  saved_itemsのサイズ上限・件数上限・権限整理(任意)
+    006_saved_items_album.sql      trip/rating/note列+本人のみのUPDATE(この3列だけ)。旅行アルバム用(未実行でも保存は動く)
+    007_saved_items_romanization.sql  romanization列(任意。未実行ならローマ字は保存されないだけ)
 ```
 
 ## 環境変数(値は書きません。VercelとSupabaseダッシュボードで確認)
@@ -149,6 +151,16 @@ supabase/
 6. **Google OAuthの自動化ログインは弾かれる**(Google側のbot対策でブラウザ自動操作からのログインがハングする)。動作確認は必ず実機/手動で
 7. **`navigator.share` はタップ直後にしか呼べない**(awaitを挟むとユーザー操作の有効期限が切れる)。非同期生成するZIPは共有シートではなく通常ダウンロード
 8. **`useCamera.start()` で前のストリームを止めずに上書きすると再スキャンごとにカメラが増殖する**。世代カウンタで遅れて届いたストリームも解放
+
+## 2026-11 に追加した機能(詳細は各 PR)
+
+- 注文フレーズ集(`src/lib/phrases.ts`。5言語・静的・オフライン。文面はネイティブ未確認)
+- 食事制限プロファイル(家族ごと。端末内 localStorage。危険度バッジ high/medium/low/unknown。AIの推定)
+- PWA(`public/sw.js`・manifest。`/api` と他ドメインはキャッシュしない。保存済みのオフライン閲覧はログアウトで消去)
+- 旅行アルバム(旅行名・評価・メモ・検索・並べ替え・Markdown書き出し。006が必要)
+- 複数価格・注文リスト(サービス料/VATの概算・円換算・店員に見せる画面。端末内)
+- メニュー言語の指定・ローマ字・日本の近い料理・辛さ(説明文の末尾に追記して保存)
+- 実機でしか確認できないもの: iOSのホーム画面アプリでのログイン、実APIでの価格/ローマ字/危険度の精度
 
 ## セキュリティ・費用対策(2026-11 点検で追加。詳細は `docs/audit-2026-11.md`)
 
