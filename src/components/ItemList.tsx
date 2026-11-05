@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { MenuItem } from "../lib/types";
 import { useSpeechController } from "../hooks/useSpeechController";
 import { formatPrice, useRates } from "../lib/currency";
+import { safeReferenceUrl } from "../lib/safeUrl";
 import { SpeechRateSwitch } from "./SpeechRateSwitch";
 import { PointOrderModal } from "./PointOrderModal";
 
@@ -116,18 +117,25 @@ export function ItemList({
                       <div className="item-references">
                         <span className="item-references-label">参考リンク:</span>
                         <ul>
-                          {item.references.map((ref, refIndex) => (
-                            <li key={refIndex}>
-                              <a
-                                href={ref.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {ref.title}
-                              </a>
-                            </li>
-                          ))}
+                          {item.references.map((ref, refIndex) => {
+                            const href = safeReferenceUrl(ref.url);
+                            return (
+                              <li key={refIndex}>
+                                {href ? (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {ref.title}
+                                  </a>
+                                ) : (
+                                  ref.title
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}

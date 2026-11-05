@@ -3,6 +3,7 @@ import { supabase, type SavedItem } from "../lib/supabase";
 import { useSpeechController } from "../hooks/useSpeechController";
 import { SpeechRateSwitch } from "./SpeechRateSwitch";
 import { PointOrderModal } from "./PointOrderModal";
+import { safeReferenceUrl, safeThumbnailSrc } from "../lib/safeUrl";
 
 export function SavedList() {
   const [items, setItems] = useState<SavedItem[]>([]);
@@ -46,9 +47,9 @@ export function SavedList() {
         {items.map((item) => (
           <li key={item.id} className="saved-list-item">
             <div className="saved-list-row">
-              {item.thumbnail_url && (
+              {safeThumbnailSrc(item.thumbnail_url) && (
                 <img
-                  src={item.thumbnail_url}
+                  src={safeThumbnailSrc(item.thumbnail_url)!}
                   alt={item.dish_name}
                   className="saved-list-thumb"
                 />
@@ -95,13 +96,20 @@ export function SavedList() {
                   <div className="item-references">
                     <span className="item-references-label">参考リンク:</span>
                     <ul>
-                      {item.reference_links.map((ref, refIndex) => (
-                        <li key={refIndex}>
-                          <a href={ref.url} target="_blank" rel="noopener noreferrer">
-                            {ref.title}
-                          </a>
-                        </li>
-                      ))}
+                      {item.reference_links.map((ref, refIndex) => {
+                        const href = safeReferenceUrl(ref.url);
+                        return (
+                          <li key={refIndex}>
+                            {href ? (
+                              <a href={href} target="_blank" rel="noopener noreferrer">
+                                {ref.title}
+                              </a>
+                            ) : (
+                              ref.title
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}

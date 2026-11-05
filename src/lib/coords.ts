@@ -31,7 +31,26 @@ export function containRect(
   return { left: (containerW - width) / 2, top: 0, width, height };
 }
 
-export function boxToStyle(box: MenuItem["box"], rect: Rect) {
+/**
+ * Clamps a box to the 0-1000 range and replaces NaN/non-numbers, so a bad
+ * value from the server, a restored history entry or an old save can never
+ * produce `NaN px` styles or markers far off-screen.
+ */
+export function safeBox(box: Partial<MenuItem["box"]> | null | undefined): MenuItem["box"] {
+  const num = (v: unknown, lo: number, hi: number, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) ? Math.min(Math.max(v, lo), hi) : fallback;
+  const x = num(box?.x, 0, 1000, 0);
+  const y = num(box?.y, 0, 1000, 0);
+  return {
+    x,
+    y,
+    w: num(box?.w, 0, 1000 - x, 0),
+    h: num(box?.h, 0, 1000 - y, 0),
+  };
+}
+
+export function boxToStyle(rawBox: MenuItem["box"], rect: Rect) {
+  const box = safeBox(rawBox);
   return {
     left: rect.left + (box.x / 1000) * rect.width,
     top: rect.top + (box.y / 1000) * rect.height,

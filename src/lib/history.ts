@@ -10,6 +10,23 @@ export interface HistoryEntry {
 }
 
 const KEY = "menu-camera-history";
+
+// localStorage can hold anything (older versions, manual edits, corruption):
+// drop entries that would crash the history panel or the overlay.
+export function isValidEntry(e: unknown): e is HistoryEntry {
+  if (typeof e !== "object" || e === null) return false;
+  const x = e as Partial<HistoryEntry>;
+  return (
+    typeof x.image === "string" &&
+    x.image.startsWith("data:image/") &&
+    typeof x.timestamp === "number" &&
+    Number.isFinite(x.timestamp) &&
+    Array.isArray(x.items) &&
+    x.items.every(
+      (i) => typeof i === "object" && i !== null && typeof (i as { name?: unknown }).name === "string",
+    )
+  );
+}
 const MAX_ENTRIES = 5;
 
 export function loadHistory(): HistoryEntry[] {
@@ -17,7 +34,7 @@ export function loadHistory(): HistoryEntry[] {
     const raw = localStorage.getItem(KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.filter(isValidEntry) : [];
   } catch {
     return [];
   }
