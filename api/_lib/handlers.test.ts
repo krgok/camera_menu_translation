@@ -8,12 +8,14 @@ vi.mock("./auth.js", () => ({
 
 import { requireUser } from "./auth.js";
 import { HttpError } from "./errors.js";
+import { resetMemoryQuotaForTests } from "./quota.js";
 import analyze from "../analyze.js";
 import explain from "../explain.js";
 import explainBatch from "../explain-batch.js";
 
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
+  resetMemoryQuotaForTests();
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -77,6 +79,32 @@ describe("/api/analyze の入力上限(課金前に拒否)", () => {
     expect(res.statusCode).toBe(502);
     expect(JSON.stringify(res.body)).not.toContain("SECRET-BODY");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("1日の上限", () => {
+  it("上限に達したら 429 + Retry-After で、上流を呼ばない", async () => {
+    process.env.DAILY_LIMIT_EXPLAIN = "1";
+    process.env.GEMINI_API_KEY = "g";
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"explanation":"ok"}' }] } }] }),
+        { status: 200 },
+      ),
+    );
+    expect((await call(explain, { body: { name: "a" } })).statusCode).toBe(200);
+    const second = await call(explain, { body: { name: "a" } });
+    expect(second.statusCode).toBe(429);
+    expect(second.headers["Retry-After"]).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    delete process.env.DAILY_LIMIT_EXPLAIN;
+  });
+
+  it("入力検証に失敗したリクエストは回数を消費しない", async () => {
+    process.env.DAILY_LIMIT_EXPLAIN = "1";
+    expect((await call(explain, { body: {} })).statusCode).toBe(400);
+    expect((await call(explain, { body: {} })).statusCode).toBe(400);
+    delete process.env.DAILY_LIMIT_EXPLAIN;
   });
 });
 

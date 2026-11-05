@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireUser } from "./_lib/auth.js";
+import { consumeQuota } from "./_lib/quota.js";
 import { respondError } from "./_lib/errors.js";
 import { assertBodySize, validateBatchBody } from "./_lib/validate.js";
 import { explainDishesBatch } from "./_lib/gemini.js";
@@ -12,11 +13,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    await requireUser(req.headers.authorization);
+    const { user, token } = await requireUser(req.headers.authorization);
     assertBodySize(req.headers["content-length"]);
     // One Gemini call per request: the client chunks bigger menus (see
     // MAX_BATCH_ITEMS) so each call stays inside the timeout.
     const { items, appMode, avoid } = validateBatchBody(req.body);
+    // Count this paid call (per user + global, per day) before it happens.
+    await consumeQuota(user.id, token, "explain_batch");
 
     const results = await explainDishesBatch(items, appMode, avoid);
     res.status(200).json({ results });

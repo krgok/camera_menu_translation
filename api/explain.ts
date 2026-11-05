@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireUser } from "./_lib/auth.js";
+import { consumeQuota } from "./_lib/quota.js";
 import { respondError } from "./_lib/errors.js";
 import { assertBodySize, validateExplainBody } from "./_lib/validate.js";
 import { explainDish } from "./_lib/gemini.js";
@@ -12,9 +13,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    await requireUser(req.headers.authorization);
+    const { user, token } = await requireUser(req.headers.authorization);
     assertBodySize(req.headers["content-length"]);
     const { name, original_text, appMode, avoid } = validateExplainBody(req.body);
+    // Count this paid call (per user + global, per day) before it happens.
+    await consumeQuota(user.id, token, "explain");
 
     const { explanation, warning, references } = await explainDish(
       name,
