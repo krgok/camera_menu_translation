@@ -8,6 +8,7 @@ import { safeReferenceUrl, safeThumbnailSrc } from "../lib/safeUrl";
 export function SavedList() {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [pointOrderItem, setPointOrderItem] = useState<SavedItem | null>(null);
   const {
     speechSupported,
@@ -21,11 +22,16 @@ export function SavedList() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     const { data, error } = await supabase
       .from("saved_items")
       .select("*")
       .order("created_at", { ascending: false });
-    if (!error && data) setItems(data as SavedItem[]);
+    if (error) {
+      setLoadError(`保存済みの読み込みに失敗しました: ${error.message}`);
+    } else if (data) {
+      setItems(data as SavedItem[]);
+    }
     setLoading(false);
   };
 
@@ -34,15 +40,33 @@ export function SavedList() {
   }, []);
 
   const remove = async (id: string) => {
-    await supabase.from("saved_items").delete().eq("id", id);
+    const { error } = await supabase.from("saved_items").delete().eq("id", id);
+    if (error) {
+      setLoadError(`削除に失敗しました: ${error.message}`);
+      return;
+    }
+    setLoadError(null);
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  if (loading) return <p>読み込み中...</p>;
+  if (loading) return <p role="status">読み込み中...</p>;
+  if (items.length === 0 && loadError) {
+    return (
+      <div className="camera-error-box" role="alert">
+        <p className="camera-error">{loadError}</p>
+        <button onClick={load}>再読み込み</button>
+      </div>
+    );
+  }
   if (items.length === 0) return <p>保存した説明はまだありません。</p>;
 
   return (
     <>
+      {loadError && (
+        <p className="camera-error" role="alert">
+          {loadError}
+        </p>
+      )}
       <ul className="saved-list">
         {items.map((item) => (
           <li key={item.id} className="saved-list-item">

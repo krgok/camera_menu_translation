@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CAMERA_UNSUPPORTED_MESSAGE,
+  cameraErrorMessage,
+  cameraSupported,
+} from "../lib/cameraError";
 
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -28,6 +33,11 @@ export function useCamera() {
     releaseStream();
     const generation = ++generationRef.current;
     setError(null);
+    if (!cameraSupported()) {
+      setError(CAMERA_UNSUPPORTED_MESSAGE);
+      setReady(false);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
@@ -45,9 +55,7 @@ export function useCamera() {
       setReady(true);
     } catch (e) {
       if (generation !== generationRef.current) return;
-      setError(
-        e instanceof Error ? e.message : "カメラを起動できませんでした",
-      );
+      setError(cameraErrorMessage(e));
       setReady(false);
     }
   }, []);

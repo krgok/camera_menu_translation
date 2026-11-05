@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { useAnalyze } from "./hooks/useAnalyze";
@@ -19,6 +19,7 @@ import { AvoidIngredientsInput } from "./components/AvoidIngredientsInput";
 import { exportItemsText } from "./lib/exportText";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
+import { useOnline } from "./hooks/useOnline";
 import { ScrollTopButton } from "./components/ScrollTopButton";
 import "./App.css";
 
@@ -62,7 +63,14 @@ function App() {
     setItems,
     resetStatus,
   } = useAnalyze();
-  const { explain, explainBatch, loadingIndex, setLoadingIndex } = useExplain();
+  // A short-lived banner for failures that have no other place to show up
+  // (explain / save errors, quota, expired login).
+  const [notice, setNotice] = useState<string | null>(null);
+  const showNotice = useCallback((message: string) => setNotice(message), []);
+  const online = useOnline();
+  const savingRef = useRef(new Set<string>());
+  const { explain, explainBatch, loadingIndex, setLoadingIndex } =
+    useExplain(showNotice);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -164,7 +172,8 @@ function App() {
 
   const handleExplain = async (index: number) => {
     const item = items[index];
-    if (!item || item.explanation) return;
+    // Ignore a second tap while this item's request is already in flight.
+    if (!item || item.explanation || loadingIndex === index) return;
     setLoadingIndex(index);
     const result = await explain(item, appMode, avoidIngredients);
     if (result) {
@@ -236,15 +245,27 @@ function App() {
 
   const handleSave = async (item: MenuItem) => {
     if (!user || !frozenImage || !item.explanation) return;
+    // Guard against double taps creating duplicate rows while the thumbnail
+    // is being cut and the insert is in flight.
+    if (savingRef.current.has(item.name)) return;
+    savingRef.current.add(item.name);
+    try {
+      await saveItem(item, user.id, frozenImage);
+    } finally {
+      savingRef.current.delete(item.name);
+    }
+  };
+
+  const saveItem = async (item: MenuItem, userId: string, image: string) => {
     let thumbnail_url: string | null = null;
     try {
-      thumbnail_url = await cropThumbnail(frozenImage, item.box);
+      thumbnail_url = await cropThumbnail(image, item.box);
     } catch {
       // Thumbnail is a nice-to-have — saving the text should still succeed.
     }
 
     const { error: saveError } = await supabase.from("saved_items").insert({
-      user_id: user.id,
+      user_id: userId,
       dish_name: item.name,
       original_text: item.original_text ?? null,
       pronunciation: item.pronunciation ?? null,
@@ -254,9 +275,11 @@ function App() {
       mode: appMode,
       reference_links: item.references ?? null,
     });
-    if (!saveError) {
-      setSavedNames((prev) => new Set(prev).add(item.name));
+    if (saveError) {
+      showNotice(`保存に失敗しました: ${saveError.message}`);
+      return;
     }
+    setSavedNames((prev) => new Set(prev).add(item.name));
   };
 
   return (
@@ -266,17 +289,33 @@ function App() {
         <AuthButton user={user} />
       </header>
 
+      {!online && (
+        <p className="app-notice app-notice-offline" role="status">
+          オフラインです。スキャンと説明の取得にはネット接続が必要です(履歴の閲覧・音声読み上げは使えます)。
+        </p>
+      )}
+      {notice && (
+        <div className="app-notice" role="alert">
+          <span>{notice}</span>
+          <button onClick={() => setNotice(null)} aria-label="メッセージを閉じる">
+            ×
+          </button>
+        </div>
+      )}
+
       <AppModeSwitch appMode={appMode} onChange={handleAppModeChange} disabled={loading} />
 
       <nav className="app-tabs">
         <button
           className={tab === "camera" ? "active" : ""}
+          aria-current={tab === "camera" ? "page" : undefined}
           onClick={() => setTab("camera")}
         >
           カメラ
         </button>
         <button
           className={tab === "saved" ? "active" : ""}
+          aria-current={tab === "saved" ? "page" : undefined}
           onClick={() => setTab("saved")}
           disabled={!user}
         >
