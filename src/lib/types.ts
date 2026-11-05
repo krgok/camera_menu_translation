@@ -30,6 +30,12 @@ export interface RestrictionsPayload {
   diets: string[];
 }
 
+export interface PriceOption {
+  // Label as printed (e.g. "S", "ร้อน", "大"), at most a few characters.
+  label?: string;
+  value: number;
+}
+
 export interface MenuItem {
   name: string;
   original_text?: string;
@@ -47,6 +53,9 @@ export interface MenuItem {
   // Price as printed on the menu (text mode only), plus Gemini's best guess
   // at the ISO 4217 currency, so the client can show a yen estimate.
   price?: number;
+  // Several prices for one dish (sizes S/M/L, hot/cold ...). `price` mirrors
+  // the first one so older code and saved data keep working.
+  prices?: PriceOption[];
   currency?: string;
   box: { x: number; y: number; w: number; h: number };
   source: RecognitionMode;

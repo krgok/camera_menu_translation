@@ -188,3 +188,52 @@ describe("出力の検証(プロンプトインジェクション・異常値)",
     expect(r).toEqual([null, { explanation: "B", warning: undefined, references: undefined }]);
   });
 });
+
+describe("複数価格(サイズ違いなど)", () => {
+  const block = [{ text: "กาแฟ", box: { x: 10, y: 20, w: 100, h: 30 } }];
+  it("prices を検証して返し、price は最初の価格に揃える", async () => {
+    fetchMock.mockResolvedValue(
+      geminiReply({
+        items: [
+          {
+            name: "コーヒー",
+            block_indices: [0],
+            currency: "thb",
+            prices: [
+              { label: "ร้อน", value: 40 },
+              { label: "เย็น", value: 50 },
+              { label: "<b>L</b>", value: -3 },
+              { value: "x" },
+              { label: "S", value: 30 },
+            ],
+          },
+        ],
+      }),
+    );
+    const [item] = await groupMenuItems(block);
+    expect(item.prices).toEqual([
+      { label: "ร้อน", value: 40 },
+      { label: "เย็น", value: 50 },
+      { label: "S", value: 30 },
+    ]);
+    expect(item.price).toBe(40);
+    expect(item.currency).toBe("THB");
+  });
+  it("価格が1つだけなら prices は付けず、price を従来どおり返す", async () => {
+    fetchMock.mockResolvedValue(
+      geminiReply({ items: [{ name: "x", block_indices: [0], price: 60, prices: [{ value: 60 }] }] }),
+    );
+    const [item] = await groupMenuItems(block);
+    expect(item.price).toBe(60);
+    expect(item.prices).toBeUndefined();
+  });
+  it("価格は4つまで/博物館モードでは返さない", async () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({ value: i + 1 }));
+    fetchMock.mockResolvedValue(geminiReply({ items: [{ name: "x", block_indices: [0], prices: many }] }));
+    expect((await groupMenuItems(block))[0].prices).toHaveLength(4);
+    fetchMock.mockResolvedValue(geminiReply({ items: [{ name: "x", block_indices: [0], prices: many, price: 5 }] }));
+    const [m] = await groupMenuItems(block, "museum");
+    expect(m.price).toBeUndefined();
+    expect(m.prices).toBeUndefined();
+  });
+});

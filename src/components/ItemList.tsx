@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { MenuItem } from "../lib/types";
+import type { MenuItem, PriceOption } from "../lib/types";
 import { useSpeechController } from "../hooks/useSpeechController";
 import { formatPrice, useRates } from "../lib/currency";
 import { safeReferenceUrl } from "../lib/safeUrl";
@@ -19,6 +19,9 @@ interface Props {
   expandAll: boolean;
   explainingAll: boolean;
   profileAllergens?: IngredientKey[];
+  // Menu mode: add a dish (with the chosen price option) to the order list.
+  onAddToOrder?: (item: MenuItem, option?: PriceOption) => void;
+  orderCount?: (item: MenuItem) => number;
 }
 
 export function ItemList({
@@ -31,6 +34,8 @@ export function ItemList({
   expandAll,
   explainingAll,
   profileAllergens,
+  onAddToOrder,
+  orderCount,
 }: Props) {
   const rates = useRates();
   const {
@@ -43,6 +48,8 @@ export function ItemList({
     changeRate,
   } = useSpeechController();
   const [pointOrderItem, setPointOrderItem] = useState<MenuItem | null>(null);
+  // Chosen price option per row (for dishes with sizes/temperatures).
+  const [optionIndex, setOptionIndex] = useState<Record<number, number>>({});
 
   if (items.length === 0) return null;
 
@@ -104,10 +111,18 @@ export function ItemList({
                     </button>
                   )}
                 </div>
-                {typeof item.price === "number" && (
+                {item.prices && item.prices.length > 1 ? (
                   <div className="item-list-price">
-                    {formatPrice(item.price, item.currency, rates)}
+                    {item.prices
+                      .map((p) => `${p.label ? `${p.label} ` : ""}${formatPrice(p.value, item.currency, rates)}`)
+                      .join(" / ")}
                   </div>
+                ) : (
+                  typeof item.price === "number" && (
+                    <div className="item-list-price">
+                      {formatPrice(item.price, item.currency, rates)}
+                    </div>
+                  )
                 )}
                 {active && (
                   <>
@@ -192,6 +207,37 @@ export function ItemList({
                           </button>
                           <SpeechRateSwitch rate={speechRate} onChange={changeRate} />
                         </>
+                      )}
+                      {onAddToOrder && (
+                        <span className="order-add" onClick={(e) => e.stopPropagation()}>
+                          {item.prices && item.prices.length > 1 && (
+                            <select
+                              aria-label="サイズ・種類"
+                              value={optionIndex[i] ?? 0}
+                              onChange={(e) =>
+                                setOptionIndex((prev) => ({ ...prev, [i]: Number(e.target.value) }))
+                              }
+                            >
+                              {item.prices.map((p, k) => (
+                                <option key={k} value={k}>
+                                  {p.label ?? `価格${k + 1}`}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <button
+                            onClick={() =>
+                              onAddToOrder(
+                                item,
+                                item.prices && item.prices.length > 1
+                                  ? item.prices[optionIndex[i] ?? 0]
+                                  : undefined,
+                              )
+                            }
+                          >
+                            🧾 注文リストへ{orderCount && orderCount(item) > 0 ? `(${orderCount(item)})` : ""}
+                          </button>
+                        </span>
                       )}
                       <button
                         className="item-list-save"

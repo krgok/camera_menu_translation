@@ -837,3 +837,115 @@
   border-color: #c084fc;
   color: #111;
 }
+
+/* --- order list --- */
+.order-fab {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #1d2030;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.order-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  overflow-y: auto;
+  background: var(--bg);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.order-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.order-panel-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.order-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.order-lines li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+.order-line-price,
+.order-line-label {
+  color: #9ad4a8;
+  font-size: 0.85rem;
+}
+.order-qty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.order-qty button {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}
+.order-total {
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+}
+.order-total-main {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.order-total-detail {
+  font-size: 0.85rem;
+  color: #bbb;
+}
+.order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.order-add {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+.staff-order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 40rem;
+}
+.staff-order-name {
+  font-size: clamp(1.8rem, 8vw, 3.5rem);
+  font-weight: 700;
+  word-break: break-word;
+}
+.staff-order-qty {
+  font-size: clamp(1.8rem, 8vw, 3.5rem);
+  color: #ffe08a;
+  margin-left: 0.6rem;
+}
+.staff-order-label {
+  color: #bbb;
+  margin-left: 0.4rem;
+}

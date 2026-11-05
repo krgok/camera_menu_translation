@@ -4,7 +4,7 @@ import { resizeImageFile } from "../lib/image";
 import { OverlayLayer } from "./OverlayLayer";
 import { ItemList } from "./ItemList";
 import { HistoryPanel } from "./HistoryPanel";
-import type { MenuItem } from "../lib/types";
+import type { MenuItem, PriceOption } from "../lib/types";
 import type { IngredientKey } from "../lib/phrases";
 import type { HistoryEntry } from "../lib/history";
 
@@ -28,6 +28,8 @@ interface Props {
   onExplainAll: () => void;
   explainingAll: boolean;
   profileAllergens?: IngredientKey[];
+  onAddToOrder?: (item: MenuItem, option?: PriceOption) => void;
+  orderCount?: (item: MenuItem) => number;
 }
 
 export function CameraView({
@@ -50,6 +52,8 @@ export function CameraView({
   onExplainAll,
   explainingAll,
   profileAllergens,
+  onAddToOrder,
+  orderCount,
 }: Props) {
   const { videoRef, ready, error: cameraError, start, stop, captureFrame } =
     useCamera();
@@ -255,6 +259,8 @@ export function CameraView({
           expandAll={expandAll}
           explainingAll={explainingAll}
           profileAllergens={profileAllergens}
+          onAddToOrder={onAddToOrder}
+          orderCount={orderCount}
         />
       )}
     </div>
