@@ -27,7 +27,7 @@ import { OrderListPanel } from "./components/OrderListPanel";
 import { useOrderList } from "./hooks/useOrderList";
 import { InstallHint } from "./components/InstallHint";
 import { clearSavedCache } from "./lib/savedCache";
-import { insertSavedItem } from "./lib/saveItem";
+import { droppedNotice, insertSavedItem } from "./lib/saveItem";
 import { explanationForSave } from "./lib/exportText";
 import { useTrip } from "./hooks/useTrip";
 import { LanguageHintSelect } from "./components/LanguageHintSelect";
@@ -297,23 +297,20 @@ function App() {
       pronunciation: item.pronunciation ?? null,
       // "日本でいうと / 辛さ" have no column of their own: keep them in the text.
       explanation: explanationForSave(item),
-      romanization: item.romanization ?? null,
       source_language: item.source_language ?? null,
       thumbnail_url,
       mode: appMode,
       reference_links: item.references ?? null,
       ...(trip ? { trip } : {}),
+      // Only send when present: a null would still make PostgREST fail if 007 is not run.
+      ...(item.romanization ? { romanization: item.romanization } : {}),
     });
     if (!result.ok) {
       showNotice(`保存に失敗しました: ${result.message}`);
       return;
     }
-    if (trip && !result.droppedTrip) tripState.remember(trip);
-    if (result.droppedTrip) {
-      showNotice(
-        "保存しましたが、旅行名は保存されませんでした(データベースの更新 006 が未実行のため)",
-      );
-    }
+    if (trip && !result.dropped.includes("trip")) tripState.remember(trip);
+    if (result.dropped.length > 0) showNotice(droppedNotice(result.dropped));
     setSavedNames((prev) => new Set(prev).add(item.name));
   };
 

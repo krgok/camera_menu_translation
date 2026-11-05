@@ -400,8 +400,10 @@ function toExplained(raw: any, appMode: AppMode, restricted: boolean): Explained
     explanation,
     warning:
       appMode === "menu" ? cleanText(raw?.warning, OUT_WARNING_CHARS) : undefined,
-    // Only meaningful when the user actually has restrictions.
-    risk: appMode === "menu" && restricted ? cleanRisk(raw?.risk) : undefined,
+    // Only meaningful when the user actually has restrictions. If the model
+    // omitted it, say "unknown" rather than showing no badge (which would read
+    // as "looks fine" for an allergy item).
+    risk: appMode === "menu" && restricted ? (cleanRisk(raw?.risk) ?? "unknown") : undefined,
     similar_ja: appMode === "menu" ? cleanText(raw?.similar_ja, OUT_SIMILAR_CHARS) : undefined,
     spice: appMode === "menu" ? cleanSpice(raw?.spice) : undefined,
     references:
@@ -463,7 +465,10 @@ export async function explainDish(
                   ...MENU_EXTRA_SCHEMA,
                   ...(hasRestrictions(restrictions) ? { risk: RISK_SCHEMA } : {}),
                 },
-          required: ["explanation"],
+          required:
+            appMode === "menu" && hasRestrictions(restrictions)
+              ? ["explanation", "risk"]
+              : ["explanation"],
         },
       },
     },
@@ -530,7 +535,10 @@ export async function explainDishesBatch(
                   ...(hasRestrictions(restrictions) ? { risk: RISK_SCHEMA } : {}),
                   reference_titles: { type: "array", items: { type: "string" } },
                 },
-                required: ["index", "explanation"],
+                required:
+                  appMode === "menu" && hasRestrictions(restrictions)
+                    ? ["index", "explanation", "risk"]
+                    : ["index", "explanation"],
               },
             },
           },

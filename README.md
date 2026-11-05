@@ -16,6 +16,7 @@
    - Authentication → Providers → Google を有効化(Google CloudでOAuthクライアントIDを発行し設定)
    - SQL Editor で [`supabase/schema.sql`](supabase/schema.sql) を実行(新規構築のみ。既存の場合は [`supabase/migrations/`](supabase/migrations/) を番号順に)
    - 利用回数の上限を使う場合は `migrations/004_api_usage_quota.sql`(手順は PR/ファイル冒頭のコメント)、`saved_items` の追加防御は `005_saved_items_hardening.sql`(任意)
+   - 機能追加のマイグレーションは **005 → 006 → 007 の順に、該当する機能 PR をデプロイする前に**実行: 006=旅行アルバム(旅行名・評価・メモ)、007=ローマ字の保存。未実行でも保存自体は動きますが(縮退動作)、007 が無いとローマ字は保存されず、006 が無いと旅行名が保存されません。ローマ字を保存したいなら 007 は実質必須です
 
 ## ローカル開発
 

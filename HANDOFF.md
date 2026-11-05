@@ -79,8 +79,8 @@ supabase/
     003_add_mode_references.sql mode / reference_links列追加(実行済み)
     004_api_usage_quota.sql     利用回数制限のテーブル・関数(menu_camera_*)。実行+quota_secret登録が必要(手順はファイル冒頭)
     005_saved_items_hardening.sql  saved_itemsのサイズ上限・件数上限・権限整理(任意)
-    006_saved_items_album.sql      trip/rating/note列+本人のみのUPDATE(この3列だけ)。旅行アルバム用(未実行でも保存は動く)
-    007_saved_items_romanization.sql  romanization列(任意。未実行ならローマ字は保存されないだけ)
+    006_saved_items_album.sql      trip/rating/note列+本人のみのUPDATE(この3列だけ)。旅行アルバム用。005の次・機能PRのデプロイ前に実行。未実行でも保存は動くが旅行名は保存されない
+    007_saved_items_romanization.sql  romanization列。006の次・機能PRのデプロイ前に実行(005→006→007の順)。ローマ字を保存するには実質必須(未実行でも保存は動くが、ローマ字は保存されない)
 ```
 
 ## 環境変数(値は書きません。VercelとSupabaseダッシュボードで確認)

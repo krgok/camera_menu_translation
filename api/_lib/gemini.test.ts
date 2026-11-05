@@ -37,12 +37,12 @@ describe("Gemini 呼び出しの費用・安全設定", () => {
 
   it.each([
     ["explainDish", () => explainDish("a"), { explanation: "e" }, 1280, 0],
-    ["explainDishesBatch", () => explainDishesBatch([{ name: "a" }]), { items: [] }, 6144, 0],
+    ["explainDishesBatch", () => explainDishesBatch([{ name: "a" }]), { items: [] }, 8192, 0],
     [
       "groupMenuItems",
       () => groupMenuItems([{ text: "a", box: { x: 0, y: 0, w: 1, h: 1 } }]),
       { items: [] },
-      6144,
+      16384,
       0,
     ],
     ["identifyDishes", () => identifyDishes("AAAA"), { items: [] }, 4096, 1024],
@@ -235,5 +235,55 @@ describe("複数価格(サイズ違いなど)", () => {
     const [m] = await groupMenuItems(block, "museum");
     expect(m.price).toBeUndefined();
     expect(m.prices).toBeUndefined();
+  });
+});
+
+describe("食事制限があるときの risk", () => {
+  const allergic = { allergies: ["shrimp"], dislikes: [], diets: [] };
+
+  it("制限ありでモデルが risk を省略したら 'unknown' にする(バッジなし=安全に見える、を防ぐ)", async () => {
+    fetchMock.mockResolvedValue(geminiReply({ explanation: "説明" }));
+    const r = await explainDish("a", undefined, "menu", allergic);
+    expect(r.risk).toBe("unknown");
+  });
+  it("制限ありで risk が不正値でも 'unknown'", async () => {
+    fetchMock.mockResolvedValue(geminiReply({ explanation: "説明", risk: "safe!!" }));
+    expect((await explainDish("a", undefined, "menu", allergic)).risk).toBe("unknown");
+  });
+  it("制限ありで有効な risk はそのまま", async () => {
+    fetchMock.mockResolvedValue(geminiReply({ explanation: "説明", risk: "high" }));
+    expect((await explainDish("a", undefined, "menu", allergic)).risk).toBe("high");
+  });
+  it("制限ありのときだけスキーマの required に risk が入る(explain)", async () => {
+    fetchMock.mockResolvedValue(geminiReply({ explanation: "説明", risk: "low" }));
+    await explainDish("a", undefined, "menu", allergic);
+    expect(sentBody().generationConfig.responseSchema.required).toEqual(["explanation", "risk"]);
+    fetchMock.mockClear();
+    fetchMock.mockResolvedValue(geminiReply({ explanation: "説明" }));
+    await explainDish("a");
+    expect(sentBody().generationConfig.responseSchema.required).toEqual(["explanation"]);
+  });
+  it("制限なしでは risk を付けない", async () => {
+    fetchMock.mockResolvedValue(geminiReply({ explanation: "説明", risk: "high" }));
+    expect((await explainDish("a")).risk).toBeUndefined();
+  });
+  it("バッチ: risk 省略は 'unknown'、required は制限ありのときだけ risk を含む", async () => {
+    fetchMock.mockResolvedValue(
+      geminiReply({ items: [{ index: 0, explanation: "a" }, { index: 1, explanation: "b", risk: "low" }] }),
+    );
+    const r = await explainDishesBatch([{ name: "a" }, { name: "b" }], "menu", allergic);
+    expect(r.map((x) => x?.risk)).toEqual(["unknown", "low"]);
+    expect(sentBody().generationConfig.responseSchema.properties.items.items.required).toEqual([
+      "index",
+      "explanation",
+      "risk",
+    ]);
+    fetchMock.mockClear();
+    fetchMock.mockResolvedValue(geminiReply({ items: [{ index: 0, explanation: "a" }] }));
+    await explainDishesBatch([{ name: "a" }]);
+    expect(sentBody().generationConfig.responseSchema.properties.items.items.required).toEqual([
+      "index",
+      "explanation",
+    ]);
   });
 });

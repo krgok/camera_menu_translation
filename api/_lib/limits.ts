@@ -32,7 +32,7 @@ export const OUT_ROMANIZATION_CHARS = 150;
 export const OUT_REFERENCE_CHARS = 80;
 
 // Gemini maxOutputTokens per call (this also bounds thinking tokens on 2.5).
-export const TOKENS_GROUP = 6144;
+export const TOKENS_GROUP = 16384;
 export const TOKENS_IDENTIFY = 4096;
 export const TOKENS_EXPLAIN = 1280;
-export const TOKENS_EXPLAIN_BATCH = 6144;
+export const TOKENS_EXPLAIN_BATCH = 8192;

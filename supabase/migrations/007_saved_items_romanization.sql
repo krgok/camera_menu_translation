@@ -2,8 +2,9 @@
 --
 -- !! NOT RUN AUTOMATICALLY. Run once in the Supabase SQL editor, by a human. !!
 -- Additive: one nullable column on public.saved_items only (this project is
--- shared with other apps). Safe to re-run. The app keeps working without it:
--- saving silently omits the romanization if the column does not exist yet.
+-- shared with other apps). Safe to re-run. Run order: 005 -> 006 -> 007, BEFORE
+-- deploying the feature PRs. The app keeps working without it, but romanization
+-- is not persisted until this is run (the save is retried without that column).
 
 alter table public.saved_items add column if not exists romanization text;
 
