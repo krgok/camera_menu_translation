@@ -23,6 +23,8 @@ import { PointOrderModal } from "./components/PointOrderModal";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
 import { useOnline } from "./hooks/useOnline";
+import { InstallHint } from "./components/InstallHint";
+import { clearSavedCache } from "./lib/savedCache";
 import { ScrollTopButton } from "./components/ScrollTopButton";
 import "./App.css";
 
@@ -79,7 +81,9 @@ function App() {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Don't leave one person's saved dishes on a shared phone after sign-out.
+      if (event === "SIGNED_OUT") clearSavedCache();
       setUser(session?.user ?? null);
     });
     return () => sub.subscription.unsubscribe();
@@ -294,6 +298,7 @@ function App() {
           <AuthButton user={user} />
         </div>
       </header>
+      <InstallHint />
       {showPhrases && (
         <PointOrderModal
           name=""
