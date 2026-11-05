@@ -23,6 +23,7 @@ import {
   cleanLanguage,
   cleanName,
   cleanPrice,
+  cleanPrices,
   cleanRisk,
   cleanText,
 } from "./sanitize.js";
@@ -154,6 +155,8 @@ export async function groupMenuItems(
         "原文表記の発音記号(IPA。注文時に声に出して読む助けになるように)を返してください。" +
         "その項目の価格が記載されていれば、price(数値のみ。カンマ区切りは除く)と" +
         "currency(ISO 4217の通貨コード。通貨記号・言語・地域から推定。例: タイ語ならTHB)も返してください。" +
+        "サイズ違い・温度違い・種類違いで価格が複数ある場合(S/M/L、ร้อน/เย็น など)は、" +
+        "pricesに{label(印字のとおりの短い表記), value(数値)}を最大4つ入れてください(priceは最初の価格にしてください)。" +
         "価格の断片は料理名のグループには含めず(block_indicesには料理名の断片だけを入れる)、" +
         "説明文は不要です。その他の無関係な文字は無視してください。" +
         hintClause(contextHint) +
@@ -179,6 +182,14 @@ export async function groupMenuItems(
                   pronunciation: { type: "string" },
                   source_language: { type: "string" },
                   price: { type: "number" },
+                  prices: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: { label: { type: "string" }, value: { type: "number" } },
+                      required: ["value"],
+                    },
+                  },
                   currency: { type: "string" },
                   block_indices: { type: "array", items: { type: "integer" } },
                 },
@@ -215,13 +226,25 @@ export async function groupMenuItems(
       original_text: cleanText(raw.original_text, OUT_ORIGINAL_CHARS, { allowUrls: true }),
       pronunciation: cleanText(raw.pronunciation, OUT_PRONUNCIATION_CHARS),
       source_language: cleanLanguage(raw.source_language),
-      price: appMode === "menu" ? cleanPrice(raw.price) : undefined,
+      ...pricesFor(appMode, raw),
       currency: appMode === "menu" ? cleanCurrency(raw.currency) : undefined,
       box,
       source: "text",
     });
   }
   return capItems(items);
+}
+
+// `price` mirrors the first of `prices` so a single-price menu behaves exactly as before.
+function pricesFor(appMode: AppMode, raw: any): { price?: number; prices?: { label?: string; value: number }[] } {
+  if (appMode !== "menu") return {};
+  const prices = cleanPrices(raw?.prices);
+  const price = cleanPrice(raw?.price) ?? prices?.[0]?.value;
+  return {
+    price,
+    // A lone price needs no option list.
+    prices: prices && prices.length > 1 ? prices : undefined,
+  };
 }
 
 /**

@@ -23,6 +23,8 @@ import { PointOrderModal } from "./components/PointOrderModal";
 import { CameraView } from "./components/CameraView";
 import { SavedList } from "./components/SavedList";
 import { useOnline } from "./hooks/useOnline";
+import { OrderListPanel } from "./components/OrderListPanel";
+import { useOrderList } from "./hooks/useOrderList";
 import { InstallHint } from "./components/InstallHint";
 import { clearSavedCache } from "./lib/savedCache";
 import { insertSavedItem } from "./lib/saveItem";
@@ -48,6 +50,8 @@ function App() {
   const [contextHint, setContextHint] = useState<string>(
     () => localStorage.getItem(CONTEXT_HINT_KEY) ?? "",
   );
+  const order = useOrderList();
+  const [showOrder, setShowOrder] = useState(false);
   const tripState = useTrip();
   const diet = useDietProfiles();
   const restrictions = toExplainRestrictions(diet.active);
@@ -410,12 +414,37 @@ function App() {
             onExplainAll={handleExplainAll}
             explainingAll={explainingAll}
             profileAllergens={profileAllergens}
+            onAddToOrder={appMode === "menu" ? order.add : undefined}
+            orderCount={(it) =>
+              order.lines
+                .filter((l) => l.name === it.name)
+                .reduce((n, l) => n + l.qty, 0)
+            }
           />
         </>
       ) : (
         <SavedList />
       )}
 
+      {appMode === "menu" && (
+        <button
+          className="order-fab"
+          onClick={() => setShowOrder(true)}
+          aria-label={`注文リストを開く(${order.lines.length}品目)`}
+        >
+          🧾 {order.lines.reduce((n, l) => n + l.qty, 0)}
+        </button>
+      )}
+      {showOrder && (
+        <OrderListPanel
+          lines={order.lines}
+          preset={order.preset}
+          onQty={order.setQty}
+          onClear={order.clear}
+          onPreset={order.setPreset}
+          onClose={() => setShowOrder(false)}
+        />
+      )}
       <ScrollTopButton />
     </div>
   );

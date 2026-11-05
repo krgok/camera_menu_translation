@@ -77,3 +77,17 @@ export function cleanRisk(value: unknown): "high" | "medium" | "low" | "unknown"
     ? value
     : undefined;
 }
+
+/** Up to 4 price options; invalid values are dropped, labels are cleaned. */
+export function cleanPrices(value: unknown): { label?: string; value: number }[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: { label?: string; value: number }[] = [];
+  for (const raw of value) {
+    const v = cleanPrice((raw as { value?: unknown } | null)?.value);
+    if (v === undefined) continue;
+    const label = cleanText((raw as { label?: unknown }).label, 20);
+    out.push(label ? { label, value: v } : { value: v });
+    if (out.length >= 4) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
