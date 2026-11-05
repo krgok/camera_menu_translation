@@ -5,6 +5,8 @@ import { formatPrice, useRates } from "../lib/currency";
 import { safeReferenceUrl } from "../lib/safeUrl";
 import { SpeechRateSwitch } from "./SpeechRateSwitch";
 import { PointOrderModal } from "./PointOrderModal";
+import { RISK_INFO, summarizeRisks } from "../lib/diet";
+import type { IngredientKey } from "../lib/phrases";
 
 interface Props {
   items: MenuItem[];
@@ -16,6 +18,7 @@ interface Props {
   // "Show all explanations" mode: every row renders expanded.
   expandAll: boolean;
   explainingAll: boolean;
+  profileAllergens?: IngredientKey[];
 }
 
 export function ItemList({
@@ -27,6 +30,7 @@ export function ItemList({
   explainingIndex,
   expandAll,
   explainingAll,
+  profileAllergens,
 }: Props) {
   const rates = useRates();
   const {
@@ -42,8 +46,20 @@ export function ItemList({
 
   if (items.length === 0) return null;
 
+  const risks = summarizeRisks(items);
+  const flagged = risks.high + risks.medium + risks.unknown;
+
   return (
     <>
+      {(flagged > 0 || risks.low > 0) && (
+        <p className="risk-summary" role="status">
+          あなたの制限(食事制限・アレルギー)の確認:
+          {risks.high > 0 && ` 🚫要注意${risks.high}件`}
+          {risks.medium > 0 && ` ⚠注意${risks.medium}件`}
+          {risks.unknown > 0 && ` ？不明${risks.unknown}件`}
+          {risks.low > 0 && ` ✓たぶん大丈夫${risks.low}件`}
+        </p>
+      )}
       <ul className="item-list">
         {items.map((item, i) => {
           const key = String(i);
@@ -60,7 +76,13 @@ export function ItemList({
               <div className="item-list-body">
                 <div className="item-list-title">
                   {item.name}
-                  {item.warning && <span className="item-warning-badge">⚠</span>}
+                  {item.risk ? (
+                    <span className={`risk-badge ${RISK_INFO[item.risk].className}`}>
+                      {RISK_INFO[item.risk].icon} {RISK_INFO[item.risk].label}
+                    </span>
+                  ) : (
+                    item.warning && <span className="item-warning-badge">⚠</span>
+                  )}
                   {speechSupported && item.original_text && (
                     <button
                       className="title-speak"
@@ -196,6 +218,7 @@ export function ItemList({
           language={pointOrderItem.source_language}
           price={pointOrderItem.price}
           currency={pointOrderItem.currency}
+          profileAllergens={profileAllergens}
           onClose={() => setPointOrderItem(null)}
         />
       )}

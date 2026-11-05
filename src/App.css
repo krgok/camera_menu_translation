@@ -721,3 +721,76 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+/* --- diet profile panel & risk badges --- */
+.diet-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  margin: 0.4rem 0;
+}
+.diet-panel summary {
+  cursor: pointer;
+  min-height: 2.25rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+}
+.diet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+}
+.diet-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.diet-row input[type="text"] {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.diet-panel fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+}
+.diet-panel legend {
+  font-size: 0.8rem;
+  color: #bbb;
+  padding: 0 0.3rem;
+}
+.diet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+}
+.diet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  min-height: 1.9rem;
+}
+.risk-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.risk-high { color: #ff8a8a; }
+.risk-medium { color: #e0b84c; }
+.risk-unknown { color: #bbb; }
+.risk-low { color: #7fd69a; }
+.risk-summary {
+  font-size: 0.85rem;
+  margin: 0.3rem 0;
+  color: #ddd;
+}

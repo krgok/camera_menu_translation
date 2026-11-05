@@ -20,5 +20,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["**/*.ts", "../src/lib/types.ts"]
+  "include": ["**/*.ts", "../src/lib/types.ts", "../src/lib/phrases.ts", "../src/lib/diet.ts"]
 }

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { postJson } from "../lib/api";
+import type { ExplainRestrictions } from "../lib/diet";
 import type {
   AppMode,
   ExplainBatchResponse,
@@ -15,14 +16,14 @@ export function useExplain(onError?: (message: string) => void) {
     async (
       item: MenuItem,
       appMode: AppMode,
-      avoid?: string,
+      restrictions: ExplainRestrictions = {},
     ): Promise<ExplainResponse | null> => {
       try {
         return await postJson<ExplainResponse>("/api/explain", {
           name: item.name,
           original_text: item.original_text,
           appMode,
-          avoid,
+          ...restrictions,
         });
       } catch (e) {
         onError?.(e instanceof Error ? e.message : "説明の取得に失敗しました");
@@ -38,14 +39,14 @@ export function useExplain(onError?: (message: string) => void) {
     async (
       items: MenuItem[],
       appMode: AppMode,
-      avoid?: string,
+      restrictions: ExplainRestrictions = {},
     ): Promise<(ExplainResponse | null)[]> => {
       const empty = items.map(() => null);
       try {
         const data = await postJson<ExplainBatchResponse>("/api/explain-batch", {
           items: items.map((i) => ({ name: i.name, original_text: i.original_text })),
           appMode,
-          avoid,
+          ...restrictions,
         });
         return items.map((_, i) => data.results?.[i] ?? null);
       } catch (e) {
