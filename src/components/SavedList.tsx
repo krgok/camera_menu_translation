@@ -4,11 +4,14 @@ import { useSpeechController } from "../hooks/useSpeechController";
 import { SpeechRateSwitch } from "./SpeechRateSwitch";
 import { PointOrderModal } from "./PointOrderModal";
 import { safeReferenceUrl, safeThumbnailSrc } from "../lib/safeUrl";
+import { readSavedCache, writeSavedCache } from "../lib/savedCache";
 
 export function SavedList() {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Set when the list shown is the offline copy from the last successful load.
+  const [offlineAt, setOfflineAt] = useState<number | null>(null);
   const [pointOrderItem, setPointOrderItem] = useState<SavedItem | null>(null);
   const {
     speechSupported,
@@ -28,9 +31,20 @@ export function SavedList() {
       .select("*")
       .order("created_at", { ascending: false });
     if (error) {
-      setLoadError(`保存済みの読み込みに失敗しました: ${error.message}`);
+      // Offline or Supabase unreachable: fall back to the copy from the last
+      // successful load (same user only), so saved dishes stay viewable.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const cached = readSavedCache(sessionData.session?.user.id ?? null);
+      if (cached) {
+        setItems(cached.items);
+        setOfflineAt(cached.cachedAt);
+      } else {
+        setLoadError(`保存済みの読み込みに失敗しました: ${error.message}`);
+      }
     } else if (data) {
       setItems(data as SavedItem[]);
+      setOfflineAt(null);
+      writeSavedCache(data as SavedItem[]);
     }
     setLoading(false);
   };
@@ -62,6 +76,14 @@ export function SavedList() {
 
   return (
     <>
+      {offlineAt && (
+        <p className="app-notice app-notice-offline" role="status">
+          <span>
+            オフライン表示です(最後に読み込んだ内容: {new Date(offlineAt).toLocaleString("ja-JP")})。削除などの操作はネット接続後に行えます。
+          </span>
+          <button onClick={load}>再読み込み</button>
+        </p>
+      )}
       {loadError && (
         <p className="camera-error" role="alert">
           {loadError}
@@ -162,7 +184,7 @@ export function SavedList() {
                       <SpeechRateSwitch rate={speechRate} onChange={changeRate} />
                     </>
                   )}
-                  <button onClick={() => remove(item.id)}>削除</button>
+                  <button disabled={offlineAt !== null} onClick={() => remove(item.id)}>削除</button>
                 </div>
               </div>
             </div>
