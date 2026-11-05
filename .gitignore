@@ -12,7 +12,8 @@ dist
 dist-ssr
 *.local
 .env
-.env.local
+.env.*
+!.env.example
 .vercel
 
 # Editor directories and files
@@ -25,3 +26,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local tool state / outputs (never commit)
+.claude/settings.local.json
+*.tsbuildinfo
+coverage
+.vercel
+.supabase
