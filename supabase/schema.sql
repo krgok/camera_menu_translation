@@ -17,6 +17,10 @@ create table if not exists saved_items (
   mode           text not null default 'menu',
   -- Museum mode: array of {title, url} reference links.
   reference_links jsonb,
+  -- Travel album (see migrations/006): trip name, rating (1 / -1), memo.
+  trip           text,
+  rating         smallint,
+  note           text,
   created_at     timestamptz not null default now()
 );
 
@@ -34,6 +38,7 @@ drop policy if exists "delete own saved_items" on saved_items;
 create policy "delete own saved_items" on saved_items
   for delete using (auth.uid() = user_id);
 
--- No UPDATE policy on purpose: the app never edits a saved item (delete + re-save).
+-- UPDATE is only for the album fields (trip / rating / note), owner only, and only
+-- on those columns: see migrations/006_saved_items_album.sql (run it after this file).
 -- Remaining hardening (size limits, per-user row cap, index, revokes): see
 -- supabase/migrations/005_saved_items_hardening.sql — run it after this file.

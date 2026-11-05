@@ -799,3 +799,41 @@
   border-color: #7aa2ff;
   color: #b9ccff;
 }
+
+/* --- album --- */
+.saved-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+.saved-toolbar-row,
+.saved-editor-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.saved-toolbar input[type="search"] {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.saved-editor-row input[type="text"],
+.saved-editor-row textarea {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.saved-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+.saved-editor button.active {
+  background: #c084fc;
+  border-color: #c084fc;
+  color: #111;
+}

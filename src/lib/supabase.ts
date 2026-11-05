@@ -28,5 +28,9 @@ export interface SavedItem {
   thumbnail_url: string | null;
   mode: string;
   reference_links: Reference[] | null;
+  // Travel album fields (migration 006). Absent until that migration is run.
+  trip?: string | null;
+  rating?: number | null;
+  note?: string | null;
   created_at: string;
 }

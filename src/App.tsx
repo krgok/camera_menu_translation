@@ -25,6 +25,9 @@ import { SavedList } from "./components/SavedList";
 import { useOnline } from "./hooks/useOnline";
 import { InstallHint } from "./components/InstallHint";
 import { clearSavedCache } from "./lib/savedCache";
+import { insertSavedItem } from "./lib/saveItem";
+import { useTrip } from "./hooks/useTrip";
+import { TripInput } from "./components/TripInput";
 import { ScrollTopButton } from "./components/ScrollTopButton";
 import "./App.css";
 
@@ -45,6 +48,7 @@ function App() {
   const [contextHint, setContextHint] = useState<string>(
     () => localStorage.getItem(CONTEXT_HINT_KEY) ?? "",
   );
+  const tripState = useTrip();
   const diet = useDietProfiles();
   const restrictions = toExplainRestrictions(diet.active);
   const profileAllergens = diet.active?.allergies ?? [];
@@ -269,20 +273,28 @@ function App() {
       // Thumbnail is a nice-to-have — saving the text should still succeed.
     }
 
-    const { error: saveError } = await supabase.from("saved_items").insert({
+    const trip = tripState.trip.trim();
+    const result = await insertSavedItem(supabase, {
       user_id: userId,
       dish_name: item.name,
       original_text: item.original_text ?? null,
       pronunciation: item.pronunciation ?? null,
-      explanation: item.explanation,
+      explanation: item.explanation ?? "",
       source_language: item.source_language ?? null,
       thumbnail_url,
       mode: appMode,
       reference_links: item.references ?? null,
+      ...(trip ? { trip } : {}),
     });
-    if (saveError) {
-      showNotice(`保存に失敗しました: ${saveError.message}`);
+    if (!result.ok) {
+      showNotice(`保存に失敗しました: ${result.message}`);
       return;
+    }
+    if (trip && !result.droppedTrip) tripState.remember(trip);
+    if (result.droppedTrip) {
+      showNotice(
+        "保存しましたが、旅行名は保存されませんでした(データベースの更新 006 が未実行のため)",
+      );
     }
     setSavedNames((prev) => new Set(prev).add(item.name));
   };
@@ -358,6 +370,13 @@ function App() {
                 appMode={appMode}
                 disabled={loading}
               />
+              {user && (
+                <TripInput
+                  value={tripState.trip}
+                  recent={tripState.recent}
+                  onChange={tripState.setTrip}
+                />
+              )}
               {appMode === "menu" && (
                 <DietProfilePanel
                   state={diet.state}
