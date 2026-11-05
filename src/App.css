@@ -655,3 +655,69 @@
   font-size: 0.75rem;
   color: #aaa;
 }
+
+/* --- phrase book / point-order picker --- */
+.point-order-modal {
+  overflow-y: auto;
+  justify-content: flex-start;
+  padding-top: 3.5rem;
+  padding-bottom: 3rem;
+}
+.point-order-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1.1rem;
+}
+.point-order-gloss {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+.phrase-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 32rem;
+}
+.phrase-langs,
+.phrase-chips,
+.phrase-ingredient {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  align-items: center;
+}
+.phrase-picker button {
+  min-height: 2.5rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #666;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.phrase-picker button.active {
+  background: #c084fc;
+  border-color: #c084fc;
+  color: #111;
+}
+.phrase-picker button:disabled {
+  opacity: 0.4;
+}
+.phrase-picker select {
+  min-height: 2.5rem;
+  margin-left: 0.4rem;
+}
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
